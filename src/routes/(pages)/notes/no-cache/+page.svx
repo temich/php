@@ -26,7 +26,7 @@ Open the Network tab in the browser developer tools and send two requests.
 
 <Button />
 
-The second response will be a `304 Not Modified` with no actual body sent.
+The second response will be a `304 Not Modified` with [no actual body sent](https://github.com/temich/php/blob/a10be8417e4f5895c64002cf0c8fe10bc04194b0/src/routes/(pages)/notes/no-cache/api/%2Bserver.ts#L5).
 The response object with status `200` and body is constructed from the cached response to the first
 request.
 
@@ -80,7 +80,7 @@ The `cache-control: public` directive allows it.
 with the origin server.
 
 CDN will send the request to the origin server, which will check the `authorization` header 
-and return empty `304` response allowing CDN to use the cached response.
+and return empty `304` response allowing CDN to use previously stored response.
 
 ## Appendix
 
