@@ -4,8 +4,6 @@
   const notes = import.meta.glob('./*/*.svx', { eager: true }) as Record<string, Note>
 </script>
 
-<section>
-  <h2>Notes</h2>
   <ul>
     {#each Object.entries(notes) as [path, note] (path)}
       {@const date = new Date(note.metadata.date)}
@@ -16,4 +14,3 @@
       </li>
     {/each}
   </ul>
-</section>

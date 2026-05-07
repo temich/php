@@ -8,5 +8,8 @@
     <p class="text-muted-foreground">Personal homepage</p>
   </header>
 
-  <Notes />
+  <section>
+    <h2>Notes</h2>
+    <Notes />
+  </section>
 </div>
