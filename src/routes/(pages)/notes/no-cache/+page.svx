@@ -1,0 +1,93 @@
+---
+title: no-cache does not "disable caching"
+date: 2026-05-07
+---
+
+<script>
+  import Button from './Button.svelte'
+
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# `no-cache` does not "disable caching"
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+One of the most widespread misconceptions about HTTP protocol is that `cache-control: no-cache` 
+directive disables caching.
+
+## TL;DR
+
+Open the Network tab in the browser developer tools and send two requests.
+
+<Button />
+
+The second response will be a `304 Not Modified` with no actual body sent.
+The response object with status `200` and body is constructed from the cached response to the first
+request.
+
+## "Caching"
+
+First of all, "caching" is not an action, it's a process. 
+Using "caching" as a verb is similar to using "databasing" to refer to database operations.
+
+HTTP caching mechanism consists of two actions:
+
+1. <strong>Store</strong> the response in the cache
+2. <strong>Use</strong> the cached response
+
+So, what does `no-cache` actually do?
+
+## `no-cache`
+
+> a cache MUST NOT use the response to satisfy a subsequent request
+> without successful revalidation with the origin server.
+
+[RFC 2616, section 14.9.1](https://datatracker.ietf.org/doc/html/rfc2616#page-110)
+
+This means that only the second part of the caching mechanism is disabled.
+The response <strong>will be stored</strong> in the cache, but will be used conditionally.
+See [conditional GET](https://datatracker.ietf.org/doc/html/rfc2616#section-9.3).
+
+The directive that effectively disables the caching mechanism is `no-store` [14.9.2](https://datatracker.ietf.org/doc/html/rfc2616#section-14.9.2).
+
+## Practical application
+
+Task: Use CDN to serve media content with authorization.
+
+Solution:
+
+<pre>
+GET /media/image.jpg
+authorization: Bearer <token>
+</pre>
+
+<pre>
+200 OK
+etag: "6cddee68f6d246"
+cache-control: public, no-cache
+</pre>
+
+Since the request contains the `authorization` header, CDN by default will not use 
+the response to satisfy any subsequent request [14.8](https://datatracker.ietf.org/doc/html/rfc2616#section-14.8). 
+The `cache-control: public` directive allows it.
+
+`no-cache` directive forbids using the response to satisfy any subsequent request without revalidation 
+with the origin server.
+
+CDN will send the request to the origin server, which will check the `authorization` header 
+and return empty `304` response allowing CDN to use the cached response.
+
+## Appendix
+
+The same applies to `max-age=0` directive. [This section](https://vercel.com/docs/caching/cache-control-headers#default-cache-control-value) in the Vercel CDN docs is completely wrong:
+
+> The default value is cache-control: public, max-age=0, must-revalidate which instructs both the
+CDN and the browser not to cache.
+
+No it doesn't. Responses <strong>will be stored</strong> in the CDN and browser cache. And if you're
+dealing with personal, financial, health, or other sensitive data, you must know that.
