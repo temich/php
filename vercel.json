@@ -1,7 +1,7 @@
 {
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!.*\\bapi\\b).*)",
       "headers": [
         {
           "key": "cache-control",
