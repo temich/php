@@ -22,7 +22,7 @@ directive disables caching.
 
 ## TL;DR
 
-Open the Network tab in the browser developer tools and send two requests.
+Open the Network tab in the browser developer tools and send these two requests:
 
 <Button />
 
@@ -63,7 +63,7 @@ Solution:
 
 <pre>
 GET /media/image.jpg
-authorization: Bearer <token>
+authorization: Bearer &lt;token&gt;
 </pre>
 
 <pre>
@@ -72,15 +72,11 @@ etag: "6cddee68f6d246"
 cache-control: public, no-cache
 </pre>
 
-Since the request contains the `authorization` header, CDN by default will not use 
-the response to satisfy any subsequent request [14.8](https://datatracker.ietf.org/doc/html/rfc2616#section-14.8). 
-The `cache-control: public` directive allows it.
+- `public` directive allows the response to be used by the CDN, even though the request contains the `authorization` header [14.8](https://datatracker.ietf.org/doc/html/rfc2616#section-14.8).
+- `no-cache` directive forbids using the response without revalidation with the origin server.
 
-`no-cache` directive forbids using the response to satisfy any subsequent request without revalidation 
-with the origin server.
-
-CDN will send the request to the origin server, which will check the `authorization` header 
-and return empty `304` response allowing CDN to use previously stored response.
+As the result, CDN will send the request to the origin server, which will check the `authorization`
+header and return empty `304` response allowing CDN to use previously stored response.
 
 ## Appendix
 

@@ -48,6 +48,18 @@ a {
   @apply underline underline-offset-2
 }
 
+a:hover {
+  @apply text-muted-foreground;
+}
+
+ol {
+  @apply list-decimal list-inside;
+}
+
+ul {
+  @apply list-disc list-inside ml-2;
+}
+
 @layer typography {
   h1 {
     @apply text-2xl font-bold;
@@ -61,10 +73,6 @@ a {
 
   article {
     @apply space-y-4;
-  }
-
-  ol {
-    @apply list-decimal list-inside;
   }
 
   blockquote {
