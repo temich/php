@@ -9,12 +9,16 @@
     const response = await fetch('./api')
     const text = await response.text()
 
-    button.outerHTML = `<code>${response.status} ${response.statusText}</code><code>${text}</code>`
+    button.outerHTML = `
+      <code>${response.status} ${response.statusText}</code>
+      <code>cache-control: ${response.headers.get('cache-control')}</code>
+      <code>${text}</code>
+    `
   }
 </script>
 
 <section class="space-y-2">
-  <div class="flex gap-2">
+  <div class="flex gap-2 text-sm">
     <div class="response">
       <button type="button" class="border px-2 py-1 rounded-md disabled:opacity-0" {onclick} disabled={sent !== 0}>
         Send request
