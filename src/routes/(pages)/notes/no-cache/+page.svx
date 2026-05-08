@@ -1,6 +1,6 @@
 ---
 title: no-cache does not "disable caching"
-description: no-cache directive does not disable caching
+description: Widespread misconception about HTTP protocol
 keywords: http, caching
 date: 2026-05-07
 ---
