@@ -11,4 +11,5 @@
 	<meta name="apple-mobile-web-app-title" content="temich" />
 	<link rel="manifest" href="/site.webmanifest" />
 </svelte:head>
+
 {@render children()}
