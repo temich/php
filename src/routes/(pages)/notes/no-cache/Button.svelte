@@ -1,12 +1,14 @@
 <script lang="ts">
   let sent = $state(0)
 
+  const rnd = Math.random().toString(36).substring(2, 15)
+
   async function onclick(e: MouseEvent) {
     const button = e.currentTarget as HTMLButtonElement
     
     sent++
 
-    const response = await fetch('./api')
+    const response = await fetch(`./api?rnd=${rnd}`)
     const text = await response.text()
 
     button.outerHTML = `
