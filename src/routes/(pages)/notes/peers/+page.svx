@@ -1,0 +1,102 @@
+---
+title: Distributed Peer Indexing
+description: Dynamic index and replica discovery for partitioned workers
+keywords: distributed systems, redis, partitioning, scaling
+date: 2025-03-19
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# Distributed Peer Indexing
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+For modulo-based partitioning, each worker needs two values: its own `index` and the current number of `replicas`.
+
+When static configuration is inconvenient or unreliable, workers can derive both values from Redis by registering themselves in time-based counter keys.
+
+## Problem
+
+Suppose a group of workers processes tasks with a rule like this:
+
+```js
+task.id % replicas === index
+```
+
+This is simple and useful. Every task maps to exactly one worker index, so workers can share the same queue or task source without processing the same task twice.
+
+The difficult part is not the formula. The difficult part is discovering the inputs:
+
+- `replicas`: how many workers are currently active
+- `index`: the current worker's position inside that set
+
+In elastic environments these values change. Instances start, stop, restart, fail, and scale horizontally. Static configuration quickly becomes stale, and a stale `index` or `replicas` value can cause duplicate processing or missed tasks.
+
+## Solution
+
+Use Redis as a lightweight, rolling membership index.
+
+Each worker periodically registers itself in a Redis counter key that represents the current time interval. The counter return value becomes the worker's index for that interval. The previous interval's counter value tells the worker how many replicas were observed in the last complete interval.
+
+At interval `N`, a worker:
+
+1. Computes `N` from the current Unix time.
+2. Runs `INCR {name}:{N}`.
+3. Uses the returned counter value as its candidate `index`.
+4. Reads `{name}:{N-1}`.
+5. Uses that previous counter value as the known `replicas` count.
+
+After both values are available, the worker can use:
+
+```js
+task.id % replicas === index
+```
+
+This makes membership discovery lag by one interval, but it avoids requiring a separate cluster coordinator. Every interval records who showed up; the next interval uses that completed record as the replica count.
+
+## Parameters
+
+- `name`: worker group name, for example `mail-sender`
+- `interval`: time window length in seconds
+
+The `interval` should be larger than expected clock skew and startup jitter. Short intervals react faster to scaling changes, but they also make clock differences and temporary pauses more visible. Longer intervals are more stable, but they delay readiness and rebalancing.
+
+Old interval keys should expire. Set a Redis TTL long enough for workers to read the previous interval, but short enough to avoid accumulating unused keys.
+
+## Safe Index Transition
+
+Changing `index` or `replicas` changes task ownership. A task that belonged to one worker under the old mapping may belong to another worker under the new mapping.
+
+Because of that, workers should not switch immediately while they are actively consuming. A safe transition usually looks like this:
+
+1. Stop taking new tasks.
+2. Finish or release in-flight tasks.
+3. Apply the new `(index, replicas)` pair.
+4. Resume consumption.
+
+The exact transition depends on the task system. The important rule is that a worker must not process tasks using two ownership mappings at the same time.
+
+## Clock Skew
+
+If every worker wakes up at exactly the same moment, they may repeatedly compete for indexes at interval boundaries. If clocks differ too much, workers may write into different interval keys.
+
+A practical mitigation is to add a fixed random startup skew per instance:
+
+- `skew = random() * (interval / 2)`
+- run the registration loop with that skew applied
+
+This spreads registrations across the interval while keeping each instance's timing stable.
+
+## Caveat
+
+The first stable `(index, replicas)` pair is available only after at least one full interval has completed. In practice, initial readiness is delayed by about `interval` to `interval * 2`.
+
+This approach is useful when eventual membership is acceptable and workers can tolerate controlled rebalancing. It is not a replacement for a stronger coordination protocol when the system needs immediate, strongly consistent ownership changes.
