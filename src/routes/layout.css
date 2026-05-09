@@ -53,11 +53,11 @@ a:hover {
 }
 
 ol {
-  @apply list-decimal list-outside pl-4;
+  @apply list-decimal list-outside pl-[2ch];
 }
 
 ul {
-  @apply list-disc list-outside pl-4;
+  @apply list-disc list-outside pl-[2ch];
 }
 
 @layer typography {

@@ -1,5 +1,6 @@
 <script lang="ts">  
   import { page } from '$app/state'
+	import { House } from '@lucide/svelte';
   const { children } = $props()
 
   const meta = $derived(page.data.metadata)
@@ -26,10 +27,21 @@
 </svelte:head>
 
 <div class="container mx-auto p-4 max-w-3xl">
-  {#if page.url.pathname !== '/'}
-    <div class="mb-2">
-	  <a href=".." class="text-muted-foreground text-sm no-underline!">← Back</a>
-    </div>
-	{/if}
 	{@render children()}
+  {#if page.url.pathname !== '/'}
+  <footer class="my-4">
+    <hr class="text-muted-foreground/50 mt-8"/>
+    <div class="my-4 flex items-center [&>div]:flex-1">
+      <div class="text-left">
+          <a href=".." class="text-muted-foreground text-sm no-underline!">← Back</a>
+      </div>
+      <div class="flex items-center justify-center">
+        <a href="/"><House class="size-4 text-muted-foreground"/></a>
+      </div>
+      <div class="text-right">
+        
+      </div>
+    </div>
+  </footer>
+  {/if}  
 </div>
