@@ -1,0 +1,148 @@
+---
+title: Decentralized Request Throttling
+description: Approximate request throttling with zero I/O
+keywords: distributed systems, throttling, redis, api gateway
+date: 2025-03-19
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# Decentralized Request Throttling
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+If API gateways run in multiple instances, precise global throttling usually requires shared state on every request. When exact precision is not required, each instance can enforce limits locally and periodically synchronize counters through Redis.
+
+This gives approximate distributed throttling without adding Redis I/O to the request path.
+
+## Problem
+
+An API gateway often needs to reject excessive traffic. The traffic may be malicious, or it may come from a client bug that accidentally sends too many requests.
+
+A simple limit could be:
+
+> no more than `MAX_REQUESTS` requests to `KEY` during `INTERVAL`
+
+The problem appears when the gateway has many instances. Each instance sees only its own traffic. If there are four instances and each one allows `MAX_REQUESTS`, the system may allow up to `4 * MAX_REQUESTS`.
+
+A centralized counter can solve this, but it requires shared storage access for every request. For high-traffic gateways, that may be too expensive or too fragile. If Redis is slow or unavailable, the gateway should not fail just because throttling state cannot be written.
+
+## Constraints
+
+This approach assumes:
+
+- quota configuration is static
+- exact per-request precision is not required
+- significant quota overuse must be prevented
+- Redis must not be called on every request
+- Redis failures should degrade throttling precision, not gateway availability
+
+## Solution Idea
+
+Keep throttling decisions local to each process. Each gateway instance counts requests in memory and periodically flushes those counts to Redis.
+
+Instead of synchronizing on every request:
+
+1. Count requests locally by `KEY`.
+2. Divide `INTERVAL` into smaller spans.
+3. At the end of each span, write the local span count to Redis with `INCRBY`.
+4. Use the returned global-ish counter value to decide whether the `KEY` should be blocked.
+
+![Interval split into spans](/pictures/intervals.webp)
+
+Redis is used as an asynchronous aggregation point. The request path stays fast because normal requests touch only local memory.
+
+## Basic Algorithm
+
+For a throttling rule:
+
+- `KEY`: route, tenant, API token, IP address, or any other quota key
+- `MAX_REQUESTS`: maximum allowed requests
+- `INTERVAL`: quota window
+- `COOLDOWN`: block duration after exceeding the limit
+- `N`: number of spans inside the interval, where `N >= 2`
+
+Each instance does the following:
+
+1. Count requests to each `KEY` in memory.
+2. At the end of each span, compute the current interval number from local Unix time.
+3. Write the local count to Redis:
+
+```redis
+INCRBY throttle:{KEY}:{interval} {REQUESTS}
+```
+
+4. If the returned value is greater than `MAX_REQUESTS`, block `KEY` locally for `COOLDOWN`.
+5. Reset the local count for the next span.
+
+Redis keys should have a TTL longer than `INTERVAL`, but short enough to avoid keeping old quota windows forever.
+
+## Local Fallback
+
+If the Redis write fails, the instance can still make a local decision.
+
+Since the interval is split into `N` spans, one span should normally contain no more than:
+
+```txt
+MAX_REQUESTS / N
+```
+
+So if Redis is unavailable and local `REQUESTS > MAX_REQUESTS / N`, the instance should block `KEY` for `COOLDOWN`.
+
+This is less precise than global aggregation, but it preserves the main safety property: a single instance should not continue accepting obviously excessive traffic just because Redis is unavailable.
+
+## Time Desynchronization
+
+There is no single global clock in a distributed system. Each gateway computes the current interval from its own local time, so instances may write to neighboring interval keys for a short period.
+
+Splitting `INTERVAL` into spans reduces the impact. The algorithm does not require every process to flush at the exact same moment. Each node contributes the traffic it observed, and Redis aggregates those contributions by interval key.
+
+The selected `INTERVAL` should be much larger than expected clock skew. If clock skew is large compared to the interval, quota decisions become noisy.
+
+## Estimating Active Nodes
+
+Precision improves if each instance knows approximately how many gateway nodes are active.
+
+Start with:
+
+```js
+nodes = 1
+```
+
+During each interval, every instance keeps its own request count for each `KEY`. At the end of the interval, it reads the Redis value for the previous interval. At that point, most instances should have already moved to the next interval.
+
+Then it estimates:
+
+```js
+nodes = redisRequests / localRequests
+```
+
+This is not an exact membership protocol. It is only an estimate of how many nodes contributed traffic for the same key. When nodes are added or removed, the value adapts over the next intervals.
+
+With this estimate, local fallback can become stricter:
+
+```txt
+REQUESTS * nodes > MAX_REQUESTS / N
+```
+
+And a node can block immediately if its estimated global traffic is already above the full quota:
+
+```txt
+REQUESTS * nodes > MAX_REQUESTS
+```
+
+## Trade-Offs
+
+This design favors availability and low request latency over exact quota enforcement.
+
+It works well when throttling is a protective mechanism and a small amount of temporary overuse is acceptable. It is not appropriate when quotas are contractual, billing-related, or security-critical at exact request precision.
+
+Worst-case overuse is still possible. For example, every node may exceed its local span allowance before the next synchronization. Increasing `N` reduces that window, but increases Redis write frequency.

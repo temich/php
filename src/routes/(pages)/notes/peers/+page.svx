@@ -86,7 +86,7 @@ The exact transition depends on the task system. The important rule is that a wo
 
 ## Clock Skew
 
-If every worker wakes up at exactly the same moment, they may repeatedly compete for indexes at interval boundaries. If clocks differ too much, workers may write into different interval keys.
+If workers use highly correlated local schedules, they may repeatedly compete for indexes near interval boundaries. If clocks differ too much, workers may write into different interval keys.
 
 A practical mitigation is to add a fixed random startup skew per instance:
 
@@ -94,6 +94,8 @@ A practical mitigation is to add a fixed random startup skew per instance:
 - run the registration loop with that skew applied
 
 This spreads registrations across the interval while keeping each instance's timing stable.
+
+If boundary contention is detected repeatedly during runtime, for example for three consecutive intervals, each participant can recalculate its random skew. This lets the group recover from accidentally correlated schedules without requiring a restart.
 
 ## Caveat
 
