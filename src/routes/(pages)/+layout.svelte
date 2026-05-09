@@ -30,7 +30,6 @@
 	{@render children()}
   {#if page.url.pathname !== '/'}
   <footer class="my-4">
-    <hr class="text-muted-foreground/50 mt-8"/>
     <div class="my-4 flex items-center [&>div]:flex-1">
       <div class="text-left">
           <a href=".." class="text-muted-foreground text-sm no-underline!">← Back</a>

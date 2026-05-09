@@ -60,6 +60,10 @@ ul {
   @apply list-disc list-outside pl-6;
 }
 
+hr {
+  @apply border-muted-foreground/50;
+}
+
 @layer typography {
   h1 {
     @apply text-2xl font-bold;
@@ -77,5 +81,21 @@ ul {
 
   blockquote {
     @apply border-l-2 pl-4 italic;
+  }
+
+  ol.footnotes {
+    @apply list-none pl-2! text-muted-foreground text-sm border-t border-muted-foreground/25 pt-4;
+    counter-reset: footnotes;
+  }
+
+  ol.footnotes li {
+    @apply relative pl-2 list-none;
+    counter-increment: footnotes;
+  }
+
+  ol.footnotes li::before {
+    @apply absolute left-0 text-xs align-super;
+    content: counter(footnotes);
+    top: -0.2em;
   }
 }
