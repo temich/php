@@ -29,16 +29,16 @@
 <div class="container mx-auto p-4 max-w-3xl">
 	{@render children()}
   {#if page.url.pathname !== '/'}
-  <footer class="my-4">
+  <footer class="my-4 text-muted-foreground text-sm">
     <div class="my-4 flex items-center [&>div]:flex-1">
       <div class="text-left">
-          <a href=".." class="text-muted-foreground text-sm no-underline!">← Back</a>
+          <a href=".." class="no-underline!">← Back</a>
       </div>
       <div class="flex items-center justify-center">
         <a href="/"><House class="size-4 text-muted-foreground"/></a>
       </div>
-      <div class="text-right">
-        
+      <div class="text-right text-xs">
+        <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>
       </div>
     </div>
   </footer>
