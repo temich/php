@@ -1,3 +1,4 @@
 
 - Nice [vibecoding definition](https://x.com/unclebobmartin/status/2052363250465943982?s=20)
 - [Why not add an option for that?](https://neugierig.org/software/blog/2018/07/options.html)
+- [REST](https://roy.gbiv.com/pubs/dissertation/rest_arch_style.htm) is an architectural style for distributed hypermedia systems.
