@@ -1,6 +1,7 @@
 <script lang="ts">
   import Notes from './notes/Notes.svelte'
   import Bookmarks from './Bookmarks.svx'
+	import { Rss } from '@lucide/svelte';
 </script>
 
 <div class="space-y-4">
@@ -10,7 +11,12 @@
   </header>
 
   <section>
-    <h2>Notes</h2>
+    <div class="flex items-center gap-2">
+      <h2>Notes</h2>
+      <a href="/notes/rss.xml">
+        <Rss class="size-4 text-muted-foreground"/>
+      </a>
+    </div>
     <Notes />
   </section>
 
