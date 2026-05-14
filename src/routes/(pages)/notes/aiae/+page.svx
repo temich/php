@@ -1,5 +1,5 @@
 ---
-title: AI-assisted engeneering
+title: AI-assisted engineering
 description: Responsible use of AI in software engineering
 keywords: ai, vibecoding
 date: 2026-05-14
@@ -13,7 +13,7 @@ date: 2026-05-14
   })
 </script>
 
-# AI-assisted engeneering
+# AI-assisted engineering
 
 <p class="text-muted-foreground text-sm">{formattedDate}, <code>DRAFT</code></p>
 
