@@ -1,0 +1,27 @@
+---
+title: AI-assisted engeneering
+description: Responsible use of AI in software engineering
+keywords: ai, vibecoding
+date: 2026-05-14
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# AI-assisted engeneering
+
+<p class="text-muted-foreground text-sm">{formattedDate}, <code>DRAFT</code></p>
+
+1. AI must never, under any circumstances, have access to the production environment. <sup><a href="#fn-1">1</a></sup>
+2. Any code committed by a developer remains the developer’s responsibility. AI is only a tool.
+3. Production code generated with AI assistance must be exactly the same as the code a developer would have written without AI.
+4. Non-production code intended for long-term support must be reviewed by a developer and constrained by executable specifications (e.g. automated tests).
+
+<ol class="footnotes text-muted-foreground text-sm">
+  <li id="fn-1">Just like the developer himself.</li>
+</ol>

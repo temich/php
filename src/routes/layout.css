@@ -37,7 +37,7 @@ header {
 }
 
 code {
-  @apply bg-muted text-muted-foreground rounded-md;
+  @apply bg-muted text-muted-foreground rounded-md px-1;
 }
 
 pre {
