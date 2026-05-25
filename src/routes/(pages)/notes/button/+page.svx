@@ -17,7 +17,7 @@ date: 2026-05-25
 
 <p class="text-muted-foreground text-sm">{formattedDate}</p>
 
-`cursor: pointer` on buttons addresses a prbolem it doesn't solve.
+Using `cursor: pointer` on buttons addresses a problem it doesn't solve.
 
 If it's not obvious that a button is interactive, `cursor: pointer` will not make it more obvious for
 devices without a pointer.
