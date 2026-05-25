@@ -1,0 +1,23 @@
+---
+title: "button { cursor: pointer; }"
+description: It doesn't solve the problem it claims to solve
+keywords: ux, accessibility
+date: 2026-05-25
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# `button { cursor: pointer }`
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+`cursor: pointer` on buttons addresses a prbolem it doesn't solve.
+
+If it's not obvious that a button is interactive, `cursor: pointer` will not make it more obvious for
+devices without a pointer.
