@@ -13,7 +13,7 @@ date: 2026-05-25
   })
 </script>
 
-# `button { cursor: pointer }`
+# `button { cursor: pointer; }`
 
 <p class="text-muted-foreground text-sm">{formattedDate}</p>
 
