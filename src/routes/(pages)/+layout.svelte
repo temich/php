@@ -26,10 +26,10 @@
   {/each}
 </svelte:head>
 
-<div class="container mx-auto p-4 max-w-3xl">
+<div class="container mx-auto flex min-h-dvh max-w-3xl flex-col p-4">
 	{@render children()}
   {#if page.url.pathname !== '/'}
-  <footer class="my-4 text-muted-foreground text-sm">
+  <footer class="mt-auto mb-4 pt-4 text-muted-foreground text-sm">
     <div class="my-4 flex items-center [&>div]:flex-1">
       <div class="text-left">
           <a href=".." class="no-underline!">← Back</a>
