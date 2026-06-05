@@ -1,0 +1,44 @@
+---
+title: Trailing slashes
+description: Standards stay silent, but drop a hint
+keywords: html, URL
+date: 2026-06-05
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# Trailing slashes
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+[Demo](./off)
+
+## Standards stay silent, but drop a hint
+
+Neither HTTP, HTML, nor browsers mandate a trailing slash. A URL works either
+way: the server decides what to return, and `/notes/slashes` and
+`/notes/slashes/` can serve the exact same page.
+
+There is one place, though, where the choice leaks into behavior: resolving
+relative references. The `dot-segments` links ([RFC 3986, section 3.3](https://datatracker.ietf.org/doc/html/rfc3986#section-3.3) and [4.2](https://datatracker.ietf.org/doc/html/rfc3986#section-4.2)) are meant to point one level up or to the same level in the hierarchy, and the browser
+resolves them against the current URL — treating everything after the last `/`
+as not a unit of the hierarchy. Notably, the result of resolving such a link
+**always ends with a trailing slash**.
+
+- On `/notes/slashes/`, a `..` link resolves to `/notes/` — one level up, as expected.
+- On `/notes/slashes`, the same `..` link resolves to `/` — two levels up.
+- On `/notes/slashes`, a `.` link resolves to `/notes/` — which is the "same level" in the hierarchy.
+
+You can observe this in the [demo](./off): the `← Back` link is broken there
+only because the page URL has no trailing slash.
+
+So while the standards never say "use a trailing slash", their own rules for
+resolving `dot-segments` quietly assume that you did.
