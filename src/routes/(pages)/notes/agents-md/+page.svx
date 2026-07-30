@@ -1,0 +1,32 @@
+---
+title: AGENTS.md
+description: Why separate instructions for AI agents are unnecessary
+keywords: ai, agents, documentation
+date: 2026-07-30
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# AGENTS.md
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+If you have ever asked AI<sup><a href="#fn-1">1</a></sup> to write instructions for AI, you have probably noticed how poorly it does. The reason is simple: models are trained on data created by humans before AI existed, so they have no idea what such instructions should look like.
+
+For the same reason, the most effective way to work with AI is to talk to it as you would to a human — one who happens to know almost everything.
+
+## Documentation
+
+There is not a single reason to maintain separate instructions for agents. What you need is documentation for humans that robots will read. For the last forty years such documentation has lived in `CONTRIBUTING.md`, and the arrival of AI agents changed nothing.
+
+You probably write a more detailed `AGENTS.md` not because robots are dumb, but because your old documentation for humans was bad — not detailed enough. A robot doesn't need an `AGENTS.md` for C#, because C# has good documentation.
+
+<ol class="footnotes text-muted-foreground text-sm">
+  <li id="fn-1">In 2026, the term AI is a synonym for LLM.</li>
+</ol>
