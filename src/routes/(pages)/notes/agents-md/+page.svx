@@ -27,6 +27,8 @@ There is not a single reason to maintain separate instructions for agents. What 
 
 You probably write a more detailed `AGENTS.md` not because robots are dumb, but because your old documentation for humans was bad — not detailed enough. A robot doesn't need an `AGENTS.md` for C#, because C# has good documentation.
 
+> Also, there is no such thing as "progressive disclosure". For the five thousand years since the Sumerians invented writing, it has been called a table of contents.
+
 <ol class="footnotes text-muted-foreground text-sm">
   <li id="fn-1">In 2026, the term AI is a synonym for LLM.</li>
 </ol>
