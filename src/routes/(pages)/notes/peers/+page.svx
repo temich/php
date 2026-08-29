@@ -6,6 +6,8 @@ date: 2025-03-19
 ---
 
 <script>
+  import { ChevronRight } from '@lucide/svelte'
+
   const formattedDate = new Date(date).toLocaleDateString('en-US', {
     year: '2-digit',
     month: 'short',
@@ -24,6 +26,20 @@ For modulo-based partitioning, each worker needs two values: its own `index` and
 When static configuration is inconvenient or unreliable, workers can derive both values from Redis by registering themselves in time-based counter keys.
 
 It is an alternative to running a coordinator for this, and the difference is not free: agreement arrives an interval late, and during a change the group can briefly disagree about who owns what. A good trade where the work is idempotent, a poor one where it is not.
+
+<a
+  href="https://github.com/temich/nandi"
+  class="border-muted-foreground/25 hover:border-muted-foreground/50 flex w-96 max-w-full items-center gap-4 rounded-lg border px-4 py-3 no-underline! hover:text-foreground!"
+>
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="size-5 shrink-0">
+    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+  </svg>
+  <span class="flex-1">
+    <span class="block font-medium">nandi</span>
+    <span class="text-muted-foreground block font-mono text-sm">npm install n-and-i</span>
+  </span>
+  <ChevronRight class="text-muted-foreground size-4 shrink-0" />
+</a>
 
 ## Problem
 
@@ -120,5 +136,3 @@ The first stable `(index, replicas)` pair is available only after at least one f
 A worker that registers and then goes away stays counted in the interval it last registered in, so its share of the range goes unowned until that interval has passed. The count is a record of who was present, not of who still is, and no amount of bookkeeping in the store changes that — only a shorter interval narrows the window.
 
 This approach is useful when eventual membership is acceptable and workers can tolerate controlled rebalancing. It is not a replacement for a stronger coordination protocol when the system needs immediate, strongly consistent ownership changes.
-
-An implementation of all of the above: [n-and-i](https://github.com/temich/nandi).
