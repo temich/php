@@ -23,6 +23,8 @@ For modulo-based partitioning, each worker needs two values: its own `index` and
 
 When static configuration is inconvenient or unreliable, workers can derive both values from Redis by registering themselves in time-based counter keys.
 
+It is an alternative to running a coordinator for this, and the difference is not free: agreement arrives an interval late, and during a change the group can briefly disagree about who owns what. A good trade where the work is idempotent, a poor one where it is not.
+
 ## Problem
 
 Suppose a group of workers processes tasks with a rule like this:
@@ -44,32 +46,43 @@ In elastic environments these values change. Instances start, stop, restart, fai
 
 Use Redis as a lightweight, rolling membership index.
 
-Each worker periodically registers itself in a Redis counter key that represents the current time interval. The counter return value becomes the worker's index for that interval. The previous interval's counter value tells the worker how many replicas were observed in the last complete interval.
+Each worker periodically registers itself in a Redis counter key that represents the current time interval. The counter reply is that worker's index for the interval it registered in. Once an interval has closed, its final value is how many workers took part in it.
 
-At interval `N`, a worker:
+Both values must come from the same closed interval. At interval `N`, a worker:
 
-1. Computes `N` from the current Unix time.
-2. Runs `INCR {name}:{N}`.
-3. Uses the returned counter value as its candidate `index`.
-4. Reads `{name}:{N-1}`.
-5. Uses that previous counter value as the known `replicas` count.
+1. Computes `N` from the current time.
+2. Runs `INCR {name}:{N}`, and keeps the reply as its index for interval `N`.
+3. Reads `{name}:{N-1}`, whose value is now final.
+4. Partitions using the index it kept during `N-1` together with that count.
 
-After both values are available, the worker can use:
+`INCR` counts from one and the formula wants positions from zero, so the index is the reply minus one. After that:
 
 ```js
 task.id % replicas === index
 ```
 
-This makes membership discovery lag by one interval, but it avoids requiring a separate cluster coordinator. Every interval records who showed up; the next interval uses that completed record as the replica count.
+Everyone that registered during `N-1` holds a distinct index in `0..replicas-1`, and together they cover the range exactly once. That is what makes the partition complete: no task without an owner, and none with two.
+
+The tempting shortcut is to use the index from the interval currently open, since it is already in hand. It does not work. That interval is still accepting registrations, so its count is not final, and pairing an index from it with the previous interval's count mixes two different populations. A group that has just grown hands out indexes beyond the old count, and those workers match nothing. A group that has just shrunk leaves part of the range unclaimed, and those tasks are processed by no one. Waiting for an interval to close before using anything from it avoids both.
+
+Membership discovery lags by one interval, but it avoids requiring a separate cluster coordinator. Every interval records who showed up; the next interval uses that completed record.
+
+## Joining and Leaving
+
+Nothing in the store identifies a worker. It holds counters and nothing else — no list of members, no names, no heartbeats. A worker's index is the reply to its own `INCR`, which no other worker receives, and it keeps that number in memory rather than reading it back.
+
+That is also how a new worker recognises itself as new. It registers into the open interval like everyone else, but it has no index from the closed one, so it has nothing to pair with the count and owns nothing yet. One interval later the interval it registered in has closed, and it takes part. The same check covers a worker that stalled past an interval or restarted: the number it holds no longer belongs to the previous interval, so it stands down rather than acting on a stale mapping.
+
+Leaving needs no announcement either. A worker that stops registering is simply absent from the next count.
 
 ## Parameters
 
 - `name`: worker group name, for example `mail-sender`
-- `interval`: time window length in seconds
+- `interval`: time window length
 
-The `interval` should be larger than expected clock skew and startup jitter. Short intervals react faster to scaling changes, but they also make clock differences and temporary pauses more visible. Longer intervals are more stable, but they delay readiness and rebalancing.
+The `interval` should be comfortably larger than a registration round trip and the jitter around it. It also sets the pace of everything else: a new worker waits an interval before it owns anything, and a departure is noticed an interval after it happens. Short intervals react faster to scaling changes but spend a larger share of themselves in transit. Longer intervals are more stable, but they delay readiness and rebalancing.
 
-Old interval keys should expire. Set a Redis TTL long enough for workers to read the previous interval, but short enough to avoid accumulating unused keys.
+Old interval keys should expire. A key only has to outlive the interval that reads it, so a small multiple of the interval is enough.
 
 ## Safe Index Transition
 
@@ -84,21 +97,28 @@ Because of that, workers should not switch immediately while they are actively c
 
 The exact transition depends on the task system. The important rule is that a worker must not process tasks using two ownership mappings at the same time.
 
-## Clock Skew
+Standing down is the same transition with nothing at the end of it, which makes shutdown a special case of a change of ownership rather than a separate mechanism.
 
-If workers use highly correlated local schedules, they may repeatedly compete for indexes near interval boundaries. If clocks differ too much, workers may write into different interval keys.
+Workers do not necessarily adopt a new pair at the same moment. If each applies it as its own registration returns, then for a fraction of an interval during a rebalance two mappings are live across the group, and a task that has changed hands can be picked up twice. Adopting at the interval boundary instead makes the switch simultaneous, at the cost of a second read once the previous interval has closed.
 
-A practical mitigation is to add a fixed random startup skew per instance:
+## Clocks and Timing
 
-- `skew = random() * (interval / 2)`
-- run the registration loop with that skew applied
+There are two separate questions of time here: which interval a worker is in, and when inside that interval it registers.
 
-This spreads registrations across the interval while keeping each instance's timing stable.
+The first should not be left to local clocks. If workers disagree about the current interval they write into different keys and count separate groups. Letting the store decide settles it — computing `N` from the store's own clock, in a server-side script, puts every worker in the same interval by construction, whatever its own clock says.
 
-If boundary contention is detected repeatedly during runtime, for example for three consecutive intervals, each participant can recalculate its random skew. This lets the group recover from accidentally correlated schedules without requiring a restart.
+The second question remains. If every worker registers at the same moment, the order of the replies is decided by whatever noise is in the network, so indexes are reshuffled every interval even when membership has not changed at all. Each reshuffle is real work: ownership moves and consumers have to drain.
+
+Spreading registrations across the interval settles the ordering. A worker holding index `i` of `n` can register at `(i + 0.5) / n` of the interval, kept clear of the boundaries. The arrangement reinforces itself — the worker that registers third is handed the third index, which puts it third again next time. A settled group then keeps its assignment indefinitely. A join shifts only the workers after the point it lands, a departure only those after the gap, and two workers that do collide are handed different indexes and separate on the following interval.
+
+Before any count is known there is nothing to space against, and a random offset per instance is the fallback. It is also what keeps a fleet that starts all at once from registering in a single burst.
 
 ## Caveat
 
 The first stable `(index, replicas)` pair is available only after at least one full interval has completed. In practice, initial readiness is delayed by about `interval` to `interval * 2`.
 
+A worker that registers and then goes away stays counted in the interval it last registered in, so its share of the range goes unowned until that interval has passed. The count is a record of who was present, not of who still is, and no amount of bookkeeping in the store changes that — only a shorter interval narrows the window.
+
 This approach is useful when eventual membership is acceptable and workers can tolerate controlled rebalancing. It is not a replacement for a stronger coordination protocol when the system needs immediate, strongly consistent ownership changes.
+
+An implementation of all of the above: [n-and-i](https://github.com/temich/nandi).
