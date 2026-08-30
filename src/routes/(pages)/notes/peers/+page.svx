@@ -25,7 +25,9 @@ For modulo-based partitioning, each worker needs two values: its own `index` and
 
 When static configuration is inconvenient or unreliable, workers can derive both values from Redis by registering themselves in time-based counter keys.
 
-It is an alternative to running a coordinator for this, and the difference is not free: agreement arrives an interval late, and during a change the group can briefly disagree about who owns what. A good trade where the work is idempotent, a poor one where it is not.
+When a worker may act on them fits in a sentence: receiving the same `index` and `replicas` twice in a row is permission to do the work for one more interval, plus a small margin. It is a lease a worker issues to itself, and a counter is what keeps two workers from ever issuing the same one. Nothing renews it but another matching pair, and nothing has to revoke it — it runs out on its own.
+
+It is an alternative to running a coordinator for this, and the difference is not free: agreement arrives a couple of intervals late, and a change of membership costs the whole group an interval of standing down. What it does not cost is the split itself — no two workers hold the same index at the same moment. A good trade where a pause is cheaper than a coordinator, a poor one where ownership has to move the instant it changes.
 
 <a
   href="https://github.com/temich/nandi"
@@ -87,7 +89,7 @@ Membership discovery lags by one interval, but it avoids requiring a separate cl
 
 Nothing in the store identifies a worker. It holds counters and nothing else — no list of members, no names, no heartbeats. A worker's index is the reply to its own `INCR`, which no other worker receives, and it keeps that number in memory rather than reading it back.
 
-That is also how a new worker recognises itself as new. It registers into the open interval like everyone else, but it has no index from the closed one, so it has nothing to pair with the count and owns nothing yet. One interval later the interval it registered in has closed, and it takes part. The same check covers a worker that stalled past an interval or restarted: the number it holds no longer belongs to the previous interval, so it stands down rather than acting on a stale mapping.
+That is also how a new worker recognises itself as new. It registers into the open interval like everyone else, but it has no index from the closed one, so it has nothing to pair with the count and owns nothing yet. It waits for the interval it registered in to close, and then for a second one to agree with it, and takes part after that. The same check covers a worker that stalled past an interval or restarted: the number it holds no longer belongs to the previous interval, so it stands down rather than acting on a stale mapping.
 
 Leaving needs no announcement either. A worker that stops registering is simply absent from the next count.
 
@@ -95,8 +97,11 @@ Leaving needs no announcement either. A worker that stops registering is simply 
 
 - `name`: worker group name, for example `mail-sender`
 - `interval`: time window length
+- `gap`: timing slack, as a fraction of the interval
 
-The `interval` should be comfortably larger than a registration round trip and the jitter around it. It also sets the pace of everything else: a new worker waits an interval before it owns anything, and a departure is noticed an interval after it happens. Short intervals react faster to scaling changes but spend a larger share of themselves in transit. Longer intervals are more stable, but they delay readiness and rebalancing.
+The `interval` should be comfortably larger than a registration round trip and the jitter around it. It also sets the pace of everything else: a new worker waits two intervals before it owns anything, and a departure costs the group an interval of standing down. Short intervals react faster to scaling changes but spend a larger share of themselves in transit. Longer intervals are more stable, but they delay readiness and rebalancing.
+
+The `gap` trades tolerance for spread, and is described under Clocks and Timing below. Widening it forgives slower round trips and longer pauses, at the cost of bunching registrations toward the middle of the interval. Narrowing it does the reverse, until it is too tight for a worker to recover from a single failed registration inside it and ordinary noise starts costing cycles.
 
 Old interval keys should expire. A key only has to outlive the interval that reads it, so a small multiple of the interval is enough.
 
@@ -115,7 +120,15 @@ The exact transition depends on the task system. The important rule is that a wo
 
 Standing down is the same transition with nothing at the end of it, which makes shutdown a special case of a change of ownership rather than a separate mechanism.
 
-Workers do not necessarily adopt a new pair at the same moment. If each applies it as its own registration returns, then for a fraction of an interval during a rebalance two mappings are live across the group, and a task that has changed hands can be picked up twice. Adopting at the interval boundary instead makes the switch simultaneous, at the cost of a second read once the previous interval has closed.
+A worker following those steps still cannot make the group safe on its own. Workers do not adopt a new pair at the same moment — each applies it as its own registration returns — so for a fraction of an interval two mappings are live across the group, and a task that has changed hands can be picked up twice. Every worker can be draining correctly and the group still doubles up.
+
+Making the switch simultaneous is one answer, and an expensive one: it wants a shared instant to switch at, which is the coordination the scheme set out to do without. There is a cheaper one. A worker owns a pair only once two consecutive closed intervals have implied the same pair, and owns nothing while they disagree. Two matching answers in a row are what issue the lease; a disagreement is what withholds it.
+
+That is enough by itself. At any moment the group spans two consecutive intervals at most, since a worker has either registered in the current one or not yet. Owning an index through the later interval now means having held that same index through the earlier one as well — and every worker that registered in the earlier interval holds a distinct index in it, because a counter hands out each value once. Two workers claiming the same index would have to be the same worker. Nothing is compared between workers, and nothing has to happen at the same time.
+
+What it costs is a stand-down. Any change to `replicas` changes every pair, so the whole group lets go for an interval and comes back together. It comes back onto the indexes it already had: a worker that owns nothing goes on registering, so it keeps its place in the ordering, and the arrangement that had settled is the one that re-forms.
+
+One thing that argument takes for granted is worth making explicit — that the group really does span no more than two intervals. A worker that lost contact with the store and kept its last pair would be a third, acting on a mapping two intervals old while everyone else has moved on. So losing contact has to be noticed on a clock, not on an error. A registration that fails is easy to see; one that hangs — a connection dropped without being closed, a store that stopped answering — produces nothing to react to, and a worker waiting on it waits indefinitely. Whatever the reason, a worker that has not completed a registration by a bounded margin past the slot it was due in has to stand down and drop what it holds. That is the lease running out, and the useful part is that nothing has to be reachable for it to happen — not the store, not another worker. The worker is then in the position a restart would leave it in, and it comes back the same way.
 
 ## Clocks and Timing
 
@@ -125,14 +138,20 @@ The first should not be left to local clocks. If workers disagree about the curr
 
 The second question remains. If every worker registers at the same moment, the order of the replies is decided by whatever noise is in the network, so indexes are reshuffled every interval even when membership has not changed at all. Each reshuffle is real work: ownership moves and consumers have to drain.
 
-Spreading registrations across the interval settles the ordering. A worker holding index `i` of `n` can register at `(i + 0.5) / n` of the interval, kept clear of the boundaries. The arrangement reinforces itself — the worker that registers third is handed the third index, which puts it third again next time. A settled group then keeps its assignment indefinitely. A join shifts only the workers after the point it lands, a departure only those after the gap, and two workers that do collide are handed different indexes and separate on the following interval.
+Spreading registrations across the interval settles the ordering. A worker holding index `i` of `n` can register at `(i + 0.5) / n` of the interval. The arrangement reinforces itself — the worker that registers third is handed the third index, which puts it third again next time. A settled group then keeps its assignment indefinitely. A join shifts only the workers after the point it lands, a departure only those after the place it left, and two workers that do collide are handed different indexes and separate on the following interval.
+
+Registrations should stay clear of the boundaries. A worker firing at the very end of an interval needs only a little jitter to land in the next one, which skips an interval and costs it a cycle. So the spread covers `interval - 2 * gap`, leaving a `gap` at either end — a fraction of the interval somewhere around a tenth to a sixth, wide enough to swallow a round trip and a stalled process, narrow enough to leave the group spread out.
+
+That same `gap` is the margin for standing down, and it is one number rather than two for a reason. The two have to agree. A worker that missed a registration was due by `1 - gap` into its interval at the latest, and the earliest anyone can take up a newer mapping is `gap` into the interval after — so a stand-down that is one `gap` late always lands in time, whatever the gap is set to. Two numbers chosen independently would not, and nothing would say so: the group would look healthy and quietly double up.
 
 Before any count is known there is nothing to space against, and a random offset per instance is the fallback. It is also what keeps a fleet that starts all at once from registering in a single burst.
 
 ## Caveat
 
-The first stable `(index, replicas)` pair is available only after at least one full interval has completed. In practice, initial readiness is delayed by about `interval` to `interval * 2`.
+The first stable `(index, replicas)` pair needs two closed intervals that agree on it, so initial readiness is delayed by about `interval * 2` to `interval * 3`. Membership changes are paid for the same way: a change to `replicas` moves every pair at once, so the whole group stands down for an interval and comes back together.
+
+The partition is guaranteed at the moment ownership is handed over, and no further. Work already in flight is the worker's own problem: a consumer that keeps going after it has been told to stand down, instead of draining first, can still finish a task that now belongs to someone else. The scheme decides who owns what, and the drain is what makes that mean anything.
 
 A worker that registers and then goes away stays counted in the interval it last registered in, so its share of the range goes unowned until that interval has passed. The count is a record of who was present, not of who still is, and no amount of bookkeeping in the store changes that — only a shorter interval narrows the window.
 
-This approach is useful when eventual membership is acceptable and workers can tolerate controlled rebalancing. It is not a replacement for a stronger coordination protocol when the system needs immediate, strongly consistent ownership changes.
+This approach is useful when eventual membership is acceptable and workers can tolerate controlled rebalancing. It is not a replacement for a stronger coordination protocol when the system needs immediate, strongly consistent ownership changes, and a group that has to keep serving straight through a rebalance wants a different scheme — one that fences the work rather than pausing it.
