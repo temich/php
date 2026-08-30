@@ -25,7 +25,7 @@ For modulo-based partitioning, each worker needs two values: its own `index` and
 
 When static configuration is inconvenient or unreliable, workers can derive both values from Redis by registering themselves in time-based counter keys.
 
-When a worker may act on them fits in a sentence: receiving the same `index` and `replicas` twice in a row is permission to do the work for one more interval, plus a small margin. It is a lease a worker issues to itself, and a counter is what keeps two workers from ever issuing the same one. Nothing renews it but another matching pair, and nothing has to revoke it — it runs out on its own.
+When a worker may act on them fits in a sentence: receiving the same `index` and `replicas` twice in a row is an exclusive lease on the work for one more `interval` plus a small `gap`. Exclusive because a lease is only ever issued on an index two intervals agreed on, and inside one interval a counter gives each index to one worker. A worker issues it to itself; nothing renews it but another matching pair, and nothing has to revoke it — it runs out on its own.
 
 It is an alternative to running a coordinator for this, and the difference is not free: agreement arrives a couple of intervals late, and a change of membership costs the whole group an interval of standing down. What it does not cost is the split itself — no two workers hold the same index at the same moment. A good trade where a pause is cheaper than a coordinator, a poor one where ownership has to move the instant it changes.
 
@@ -124,7 +124,7 @@ A worker following those steps still cannot make the group safe on its own. Work
 
 Making the switch simultaneous is one answer, and an expensive one: it wants a shared instant to switch at, which is the coordination the scheme set out to do without. There is a cheaper one. A worker owns a pair only once two consecutive closed intervals have implied the same pair, and owns nothing while they disagree. Two matching answers in a row are what issue the lease; a disagreement is what withholds it.
 
-That is enough by itself. At any moment the group spans two consecutive intervals at most, since a worker has either registered in the current one or not yet. Owning an index through the later interval now means having held that same index through the earlier one as well — and every worker that registered in the earlier interval holds a distinct index in it, because a counter hands out each value once. Two workers claiming the same index would have to be the same worker. Nothing is compared between workers, and nothing has to happen at the same time.
+That is what makes the lease exclusive, and it is enough by itself. At any moment the group spans two consecutive intervals at most, since a worker has either registered in the current one or not yet. Owning an index through the later interval now means having held that same index through the earlier one as well — and every worker that registered in the earlier interval holds a distinct index in it, because a counter hands out each value once. Two workers claiming the same index would have to be the same worker. Nothing is compared between workers, and nothing has to happen at the same time.
 
 What it costs is a stand-down. Any change to `replicas` changes every pair, so the whole group lets go for an interval and comes back together. It comes back onto the indexes it already had: a worker that owns nothing goes on registering, so it keeps its place in the ordering, and the arrangement that had settled is the one that re-forms.
 
