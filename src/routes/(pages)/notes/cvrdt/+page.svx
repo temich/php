@@ -1,0 +1,122 @@
+---
+title: Geo-Distributed Convergent Replicated Data Type
+description: Active-active across regions from an entity clock, a state outbox, and a rank
+keywords: distributed systems, crdt, replication, outbox, geo-distribution
+date: 2026-09-09
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# Geo-Distributed Convergent Replicated Data Type
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+Active-active across regions is a CvRDT over the entity, not a replication product.
+
+Each region writes to its own database. The record already carries a Lamport clock: the next write increments whatever was loaded, including a version that arrived from somewhere else. A [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html) that stores that state — not a rendered event — ships the record to the other regions. They keep it where it is newer.
+
+Concurrent writes at the same version are broken by a rank stored on the record. The merge is a maximum over a total order, so delivery can be unordered and at-least-once, and a late copy and a duplicate are the same thing.
+
+## Why
+
+A product that has to keep serving when a data centre or a cloud region disappears, that wants the write to happen near the user, or that has to exist as a local deployment because a jurisdiction says so, ends up with the same shape: more than one deployment, each with its own database, all of them accepting writes.
+
+The usual answers are a global primary, or a consensus round on every write. The first makes the far region a passenger. The second puts a WAN round trip on the request. Both are the opposite of why the system went geo-distributed.
+
+What you want is that a write commits locally, and the other regions converge on that record as it stands.
+
+## The entity
+
+The unit of replication is the entity: one record, replaced entire. There is no field-level merge, and nothing that combines two concurrent writes into one record. That is a constraint, not a gap — it is what lets the rest of this stay small.
+
+The record needs a Lamport clock. A `version` that increments on every local write is already one, and it is already there if the store uses optimistic concurrency: load, mutate, compare-and-swap on the version that was loaded.
+
+Nothing extra is added for the counter to work across regions. A record applied verbatim at `version: 7` makes the next local write `8`. Causality from the other region is preserved because the clock advances off whatever is stored, not off a per-deployment sequence.
+
+Without this there is nothing to order two copies of one record. Wall-clock timestamps look like an order and are not: skew between regions is indistinguishable from a write that really happened later, and a tie is undefined. The version does not care what time it is.
+
+## States, not events
+
+The [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html) is how a committed change leaves the database without a distributed transaction. The write and the intent to publish commit together; a relay publishes afterwards, and what fails to publish is recovered from the row.
+
+The textbook stores the message. That is the defect.
+
+A message is a projection, frozen at write time, rendered on the hot path. The write then knows every consumer's schema, pays for every payload, and cannot later send something it did not compute. Replication that needs the record rather than a domain event has nothing to read. Adding it means changing the write, or reconstructing state from a log of events that was never the source of truth.
+
+Store the state instead. The outbox row holds the record as it stands after the write — the pre-image too, if something still wants a diff — and nothing derived from it. Publication happens off the request. Each destination projects what it needs when it sends, not when the entity is committed.
+
+The write path commits two things in one transaction: the entity, and a row that says this state has somewhere to go. It does not render events.
+
+## Partitioning
+
+Several replicas of the same service share the outbox. They must not all publish every row.
+
+The outbox is split into a fixed number of partitions. A replica writes into a partition it currently owns, and the relay reads only those. While it owns none it reads nothing; a row written without an owner is picked up by whoever next holds that partition. The arithmetic is the ordinary one:
+
+```
+row.partition % replicas === index
+```
+
+How a replica learns `index` and `replicas` without a coordinator is a [neighbouring note](/notes/peers/). The only fact this one needs is that the lease is exclusive: no two replicas hold the same partition at the same moment, and a replica that is not sure owns nothing.
+
+## Destinations
+
+Once the outbox stores states and the relay is partitioned, a committed change has somewhere to go. Domain events are one such place. Shipping the record to the other regions is another.
+
+A row is outstanding for a set of destinations, each published and settled on its own. `published` means settled everywhere. A destination that is down delays only itself. If the row is all-or-nothing, a failed replication publish leaves the domain events unmarked, and they are sent again. Independent settlement is what stops that.
+
+Then the actual replication is small. The new destination publishes the record as it stands. The other region applies it where it is newer:
+
+```
+remote.version > local.version
+```
+
+or, for the case below, the same version written by a region that outranks whoever wrote the stored record.
+
+A record this region has never seen is inserted. A record it has already superseded is dropped. Neither is an error. The comparison lives in one atomic write against the identity, so two deliveries of the same record, in either order, end on the same record.
+
+Because the merge is a maximum, the broker is asked for no ordering. At-least-once is the contract the outbox already has.
+
+## Concurrent writes
+
+Two regions that both loaded `version: 7` and both wrote `8` did not observe each other. Those writes are concurrent. It is rare — it wants two writes in the window of one version, without either having merged the other — and it is the one case the clock does not decide.
+
+A rank declared for each region, the same table everywhere, makes the order total. Lower outranks. An incoming record wins where:
+
+```
+remote.version > local.version
+or (remote.version == local.version and remote.rank < local.rank)
+```
+
+The rank is on the record because the tie is not about this deployment. At an equal version the question is whether the sender outranks *whoever wrote the record being replaced*, and after any merge that is not this region. A deployment that only knew its own rank would compare the wrong pair: with three regions, both A and B outrank C, so C could not tell their two concurrent writes apart and would keep whichever arrived second. The two questions coincide only where there are two regions.
+
+Both values are on the two records, so the comparison needs nothing else: no table at the point of the write, and no knowledge of who is asking.
+
+Two records never share both a version and a rank. A region writing twice increments `version`, and the compare-and-swap that was already there prevents two writes at one version in one region. The order has no ties.
+
+The first region an existing deployment becomes is rank `0`. Its records were written by whatever region it is now becoming, and that is what they are recorded as. A record without a rank would lose no tie — an absent field fails the comparison — so existing data is backfilled, not left to win forever by omission.
+
+## Done
+
+A replica state whose merge is a least upper bound of a total order is a convergent replicated data type. Commutative, associative, idempotent: apply the same records in any order, any number of times, and every region holds the same record.
+
+What it takes is an entity that already versions itself, an outbox that stores that state and can add a destination, partitions so the relay does not fight itself, and a rank for the writes the clock cannot see. The write stays local. The rest is recovery.
+
+A new region is a copy of a database, made before it serves. There is no catch-up protocol. Unique constraints other than the identity are not safe: two regions can take the same value independently, and redelivery will not help. A lost publication that the outbox does not recover is a permanent divergence, which is why the outbox is not optional here and must not degrade to a best-effort emit.
+
+That is the whole of it.
+
+## References
+
+* [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html)
+* [Lamport Clock](https://martinfowler.com/articles/patterns-of-distributed-systems/lamport-clock.html)
+* [Conflict-free replicated data type](https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type)
+* [Modulo partitioning in a dynamic topology](/notes/peers/)
