@@ -1,7 +1,16 @@
 <script lang="ts">  
   import { page } from '$app/state'
+	import { onMount } from 'svelte'
 	import { House } from '@lucide/svelte';
+  import { settings } from '$lib/settings'
+  import Review from '$lib/review/Review.svelte'
   const { children } = $props()
+
+  let review = $state(false)
+
+  onMount(() => {
+    review = settings.review()
+  })
 
   const meta = $derived(page.data.metadata)
   const tags = $derived(
@@ -27,7 +36,9 @@
 </svelte:head>
 
 <div class="container mx-auto flex min-h-dvh max-w-3xl flex-col p-4">
+  <div data-review-root class="flex flex-1 flex-col">
 	{@render children()}
+  </div>
   {#if page.url.pathname !== '/'}
   <footer class="mt-auto mb-4 pt-4 text-muted-foreground text-sm">
     <div class="my-4 flex items-center [&>div]:flex-1">
@@ -44,3 +55,7 @@
   </footer>
   {/if}  
 </div>
+
+{#if review}
+  <Review />
+{/if}
