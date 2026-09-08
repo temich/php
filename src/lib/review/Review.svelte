@@ -14,6 +14,7 @@
 	let ta = $state<HTMLTextAreaElement | undefined>()
 
 	let pending: { id: string; quote: string; prefix: string; suffix: string } | null = null
+	let suppressLink = false
 
 	const path = $derived(page.url.pathname)
 
@@ -29,6 +30,7 @@
 	onMount(() => {
 		const abort = new AbortController()
 		document.addEventListener('pointerup', onpointerup, { signal: abort.signal })
+		document.addEventListener('click', onClick, { capture: true, signal: abort.signal })
 		void reload()
 		return () => abort.abort()
 	})
@@ -37,19 +39,33 @@
 		void reload()
 	})
 
+	const onClick = (event: MouseEvent) => {
+		if (!(event.target instanceof Element)) return
+		if (event.target.closest('mark.review-mark') || suppressLink) {
+			if (event.target.closest('a')) {
+				event.preventDefault()
+				event.stopPropagation()
+			}
+		}
+		suppressLink = false
+	}
+
 	const onpointerup = (event: PointerEvent) => {
 		const target = event.target
 		if (!(target instanceof Element)) return
 		if (target.closest('[data-review-ui]')) return
-		if (target.closest('a, button, input, textarea')) return
+		if (target.closest('button, input, textarea, select')) return
 
 		const mark = target.closest('mark.review-mark')
 		const el = root()
 		const selection = document.getSelection()
+		const collapsed = selection === null || selection.isCollapsed
+		if (collapsed && target.closest('a')) return
+
 		const range =
 			el !== null &&
 			selection !== null &&
-			!selection.isCollapsed &&
+			!collapsed &&
 			selection.rangeCount > 0 &&
 			el.contains(selection.getRangeAt(0).commonAncestorContainer)
 				? selection.getRangeAt(0).cloneRange()
@@ -58,6 +74,8 @@
 		const rect = range?.getBoundingClientRect()
 		const markId = mark instanceof HTMLElement ? mark.dataset.review : undefined
 		const markRect = mark instanceof HTMLElement ? mark.getBoundingClientRect() : null
+
+		if (quote !== '') suppressLink = true
 
 		queueMicrotask(() => {
 			if (markId !== undefined && markRect !== null) {
