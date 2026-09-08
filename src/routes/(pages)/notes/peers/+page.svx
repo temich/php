@@ -1,5 +1,5 @@
 ---
-title: Distributed Peer Indexing
+title: Modulo partitioning in a dynamic topology
 description: Dynamic index and replica discovery for partitioned workers
 keywords: distributed systems, redis, partitioning, scaling
 date: 2025-03-19
@@ -15,7 +15,7 @@ date: 2025-03-19
   })
 </script>
 
-# Distributed Peer Indexing
+# Modulo partitioning in a dynamic topology
 
 <p class="text-muted-foreground text-sm">{formattedDate}</p>
 
