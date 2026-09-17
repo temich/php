@@ -1,0 +1,286 @@
+---
+title: AMQP vs. HTTP Isn't Even a Choice
+description: HTTP gives you a socket. Everything else you have to build yourself.
+keywords: distributed systems, amqp, http, rabbitmq, load balancing, messaging
+date: 2026-09-18
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# AMQP vs. HTTP Isn't Even a Choice
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+HTTP between two services gives you exactly one thing: a pinned connection to one instance that
+happened to answer first. Load balancing, retries, failover, backpressure, fan-out and delivery
+guarantees are not part of the protocol. Every one of them gets rebuilt, badly, inside a client
+library.
+
+An AMQP broker provides all of them as the default behaviour of the transport.
+
+## Keep-alive is not an optimization
+
+A TCP handshake plus a TLS handshake costs one to two round trips before the first byte of the
+request is sent. Nobody pays that per call, so every HTTP client keeps connections open. In HTTP/1.1
+persistent connections are the
+[default](https://datatracker.ietf.org/doc/html/rfc9112#section-9.3). In HTTP/2 there is normally
+[one connection per origin](https://datatracker.ietf.org/doc/html/rfc9113#section-9.1), and all
+streams are multiplexed over it.
+
+Using HTTP for interservice communication therefore means long-lived connections. That is not a
+tuning choice, it is the only sane configuration. And it has consequences that are rarely stated
+out loud.
+
+## The coin is tossed once
+
+A live connection terminates on one process. Not on a service, not on a deployment — on one PID on
+one node.
+
+So the question "which instance handles this call?" is not answered per call. It is settled once,
+at connect time, by a coin toss — and then inherited by every request that follows for the lifetime
+of the connection. HTTP/2 makes it sharper: a single connection carries the entire traffic of that
+client, so one client's whole load lands on one server instance until something tears the connection
+down.
+
+Point-to-point communication is sticky by construction. Everything below follows from this one
+fact.
+
+## And nothing corrects it
+
+DNS round-robin, a Kubernetes `Service`, an L4 balancer — they all pick a target at connect time
+and know nothing about the state of that target. More importantly, nothing ever revisits the
+choice:
+
+- Scale up, and new instances receive nothing. Existing connections do not move. The fleet grows
+  and the load does not.
+- Scale down, and connections break in bulk and stampede onto whoever is left.
+- One instance ends up with the heavy clients, another with the idle ones. The distribution never
+  self-corrects because nothing re-evaluates it.
+- A deploy rebalances everything at once, which is the only moment the distribution is ever
+  reconsidered.
+
+The usual patch is to force connections to expire — `max_connection_age`, periodic recycling. This
+is not balancing. It is a casino on a schedule.
+
+An AMQP consumer has the opposite property. The connection is still point-to-point, but it carries
+no routing decision at all. Work is distributed per message, at the moment of delivery, by a party
+that knows the state of every consumer.
+
+## N² topology
+
+This is the point that costs the most and gets mentioned the least.
+
+In a point-to-point system the unit of configuration is not the service, it is the pair. Every
+caller-callee pair is a connection pool to size, a timeout to guess, a certificate to rotate, a
+network policy to write, a dashboard to own and an alert somebody has to answer. None of it is set once. Each pair is tuned separately,
+by whoever hit the problem first, and drifts from every other pair from then on.
+
+Each caller also has to know things: the callee's address, its capacity, its health semantics, which
+of its error codes are retryable. That knowledge is copied into every caller and goes stale
+independently in each one.
+
+So adding one service to a system of N does not add one relationship. It adds up to N of them, and
+the configuration surface grows quadratically while the org chart grows linearly. Renaming or
+retiring a service means touching everyone who addressed it.
+
+With a broker, each service configures exactly one connection, to one endpoint, with one set of
+credentials and one place where policy lives. Adding a service adds one edge. The pairs stop being
+things that exist, which means they stop being things that can be misconfigured.
+
+A service mesh is the industry's answer to this, and it is worth naming precisely what it does: it
+keeps the N² pairs and moves their configuration into one control plane. That is a real improvement
+over N² hand-tuned clients. It is still N² of state, generated, distributed and reconciled — and it
+is the same problem a broker does not have.
+
+## What if the callee is down?
+
+Then you need retries. And retries are not a feature, they are a research project:
+
+- **Backoff and jitter.** Without them, a service recovering from an outage is hit by every client
+  simultaneously and goes down again.
+- **Retry budgets.** Retries multiply load exactly when the system has the least capacity. A retry
+  storm turns a degraded dependency into a total outage.
+- **Circuit breakers.** Which means health state, half-open probing, thresholds and yet another
+  piece of tuning.
+
+And after all that work, the retry still lives in the memory of the caller. If the caller's pod is
+evicted mid-retry, the work is gone. Nothing recorded that it was supposed to happen.
+
+A broker inverts this. An unacknowledged message returns to the queue; a consumer that dies mid-work
+loses nothing, because the broker never dropped the message. Redelivery is not code you wrote, it is
+what the protocol does when an acknowledgement does not arrive.
+
+## What if you want the least busy instance?
+
+With HTTP you cannot know which instance is least busy. Load is a property of the callee, and the
+caller is the one making the decision.
+
+So you build a feedback loop: instances report load, callers aggregate it, some EWMA-of-latency or
+least-outstanding-requests policy picks a target, plus subsetting so that every caller does not
+converge on the same "best" instance at the same time. All of it approximate, all of it stale by at
+least one network hop.
+
+AMQP does not answer this question, it dissolves it. A consumer declares how many unacknowledged
+messages it will hold (`basic.qos` prefetch). A consumer at its limit is simply not sent more work.
+A consumer that is free takes the next message. Nobody estimates anything: the least busy consumer
+is the one that asked, and being busy is expressed by not asking.
+
+This is the part that no client-side load balancer can replicate, because the information lives on
+the wrong side of the wire.
+
+## And now you also need events
+
+Request-response is only half the traffic. The other half is "this happened, whoever cares."
+
+Over HTTP that means webhooks, or a callback registry, or polling. Which means: the producer now
+knows its consumers by address; adding a subscriber is a config change on the producer; a subscriber
+being down is the producer's problem; the delivery guarantees of your events differ from the
+delivery guarantees of your calls; and you now operate, secure, monitor and debug two transports
+instead of one.
+
+Two transports is not twice the work. It is twice the work plus every interaction between them —
+partial failures where the call succeeded and the event did not, ordering between the two, two
+retry semantics, two sets of credentials, two observability stacks.
+
+In AMQP an event and a command are the same operation. The difference is a binding: one queue bound
+to a routing key is a command, several queues bound to the same exchange is an event. Nothing in the
+producer changes and nothing in the producer knows.
+
+## The problems that are not on the list
+
+The points above are the ones people hit first. The ones that cost more are usually these.
+
+### Temporal coupling
+
+Point-to-point requires both sides to be alive at the same instant. Restart a consumer and every
+caller sees errors for the duration. With a queue, a redeploy is invisible: messages accumulate and
+are processed when the consumer returns. The tolerated downtime of a consumer stops being zero and
+becomes "however deep the queue can get."
+
+### There is nowhere to put the work
+
+An HTTP request in flight exists only in the memory of two processes. It cannot wait. If the callee
+is not ready, the only options are block the caller, or fail.
+
+A queue is the missing component: a place where work that has been accepted but not yet performed is
+durably represented. Most of the complexity in an HTTP-based system is the effort to simulate that
+place — outbox tables, in-process work queues, scheduler rows in Postgres.
+
+### Backpressure without a buffer
+
+HTTP is often accused of having no backpressure. It does have it, at several levels at once. TCP
+closes the receive window when the reader falls behind. HTTP/2 adds explicit application-level
+[flow control](https://datatracker.ietf.org/doc/html/rfc9113#section-5.2) with `WINDOW_UPDATE`, and
+caps in-flight requests per connection with
+[`SETTINGS_MAX_CONCURRENT_STREAMS`](https://datatracker.ietf.org/doc/html/rfc9113#section-6.5.2) —
+which is the same mechanism as a consumer's prefetch window.
+[`Expect: 100-continue`](https://datatracker.ietf.org/doc/html/rfc9110#section-10.1.1) refuses a
+request before its body is sent, and `429` with
+[`Retry-After`](https://datatracker.ietf.org/doc/html/rfc9110#section-10.2.3) refuses it explicitly.
+
+The missing piece is not the signal. It is that there is nowhere for the refused work to go.
+
+When a consumer stops accepting, the message stays in the queue — durable, countable, available to
+any other consumer. When an HTTP callee stops accepting, the work stays in the caller's memory, and
+that caller is itself serving a request for someone else. Backpressure propagates up the call chain
+until it reaches the edge, where it turns into a dropped user request. Without a buffer somewhere in
+that chain, backpressure and load shedding are the same thing with different timing.
+
+Most servers destroy the signal before it can even be used. Accepting the connection, reading the
+request into a framework queue and dispatching to a worker pool all acknowledge the request before
+any capacity for it exists. Flow control then governs body bytes, while the actual overload is in
+request admission, and the client learns the truth at timeout rather than at send.
+
+A queue expresses overload as depth instead. Depth is a number: measurable, alertable, an input to
+autoscaling, and it discards nothing while it grows. The producer is decoupled from the consumer's
+instantaneous capacity, which is exactly what bursty traffic needs.
+
+Brokers are not exempt from this, they just move the boundary. AMQP has
+[`channel.flow`](https://www.rabbitmq.com/amqp-0-9-1-reference#channel.flow), and RabbitMQ
+[blocks publishers](https://www.rabbitmq.com/docs/alarms) outright when memory or disk alarms fire.
+The difference is where the work sits while that happens.
+
+### Discovery is the caller's problem
+
+Every HTTP caller needs an address. That is service discovery, DNS, config maps, sidecars and a
+deployment-order dependency graph.
+
+An AMQP producer addresses an exchange and a routing key — a logical name for an intent. Who
+consumes it, how many of them there are, and where they run is not expressed anywhere in the
+producer. Topology changes require no producer-side change at all.
+
+### A failure leaves no artifact
+
+A failed HTTP call produces a stack trace in a log file. The request itself is gone; you cannot
+inspect it, retry it, or count how many are pending.
+
+A message that cannot be processed goes to a dead-letter exchange with its payload, headers, and the
+reason intact. "How many operations have failed and what were they" is a queue you can look at,
+drain, fix and replay. That is not a feature you build — it is one queue argument.
+
+### Observability you would have had to build
+
+Queue depth, consumer count, unacknowledged messages, publish and ack rates, redelivery counts — the
+broker publishes all of it, for every logical flow, without a line of instrumentation. In an HTTP
+system the equivalent signals exist only where someone added a metric.
+
+## The endgame: you write Ribbon
+
+Follow those requirements to their conclusion and you get client-side load balancing with health
+checks, a discovery registry, circuit breakers, retry budgets, outlier ejection, an outbox, a
+scheduler, a webhook dispatcher and a replay tool.
+
+That is Netflix's stack — Ribbon, Eureka, Hystrix — and its successors: Finagle, gRPC's load
+balancing with xDS, Envoy and the service meshes built on it, Resilience4j, Polly. Enormous,
+well-engineered systems, most of whose surface area exists to recover the properties that a
+point-to-point transport threw away.
+
+And a mesh still cannot do the one thing that matters most: hold the work while nobody is there to
+take it. Store-and-forward is not a policy you can push into a sidecar. It needs a durable place to
+put messages — which is a broker, arrived at the long way round.
+
+## The myth about persistence
+
+> AMQP is slow because everything is written to disk.
+
+Persistence is a per-message property, not a property of the protocol. `basic.properties`
+carries [`delivery-mode`](https://www.rabbitmq.com/amqp-0-9-1-reference#class.basic): `1` is
+transient, `2` is persistent.
+
+Publish with `delivery-mode: 1` to a non-durable queue without publisher confirms and no `fsync`
+happens on the publish path. You get in-memory routing with the throughput that implies. Persistence
+is a choice you make per message, for the messages that deserve it, and most systems have both
+kinds.
+
+Transient messages can still reach the disk: under
+[memory pressure](https://www.rabbitmq.com/docs/memory) the broker pages them out, and only blocks
+publishers once paging is no longer enough. That is usually presented as a caveat. It is the
+opposite. The work is slowed down and kept, in order, while capacity is missing.
+
+Compare what point-to-point does at that same moment. There is no buffer to degrade into, so memory
+pressure at the callee is refused connections and timed-out requests at the caller, and the work
+that was in flight is destroyed rather than delayed. A disk write under load is not the cost of
+using a broker — it is the cheapest possible outcome of running out of memory.
+
+The real cost of a broker is not the disk. It is a component you have to operate, and a second hop:
+publisher to broker, broker to consumer, where HTTP has one. The publisher waits only for the first
+of them, so the extra hop lands in end-to-end latency rather than in the caller's — which is why it
+matters for RPC and barely at all for work nobody is waiting on.
+
+## When HTTP is still the right answer
+
+Large payloads. Chunked transfer, range requests and resumable downloads belong to HTTP, and pushing
+multi-megabyte bodies through a broker is an abuse of it. Messages are meant to be small: a queue of
+large ones stops fitting in memory, and the broker starts paging exactly when it is under the most
+pressure.
+
+The argument is not that HTTP is a bad protocol. It is that "two services need to talk" is not the
+same problem as "a client fetches a document", and HTTP solves the second one.
