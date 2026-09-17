@@ -270,11 +270,6 @@ pressure at the callee is refused connections and timed-out requests at the call
 that was in flight is destroyed rather than delayed. A disk write under load is not the cost of
 using a broker — it is the cheapest possible outcome of running out of memory.
 
-The real cost of a broker is not the disk. It is a component you have to operate, and a second hop:
-publisher to broker, broker to consumer, where HTTP has one. The publisher waits only for the first
-of them, so the extra hop lands in end-to-end latency rather than in the caller's — which is why it
-matters for RPC and barely at all for work nobody is waiting on.
-
 ## When HTTP is still the right answer
 
 Large payloads. Chunked transfer, range requests and resumable downloads belong to HTTP, and pushing
