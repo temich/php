@@ -1,0 +1,176 @@
+---
+title: OK (error)
+description: Status codes or response body? Both answers are right, and both are wrong.
+keywords: http, rest, api design, status codes, error handling, problem details
+date: 2026-09-18
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# OK (error)
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+## TL;DR
+
+Should an API report an error with an HTTP status code, or with `200 OK` and the error in the body?
+The question has no answer, and that is the actual problem. Both options are correct and both are
+wrong, depending on whether you look at HTTP as a transport or as an application protocol. HTTP is
+both at once, and the contradiction lives inside it, not in your API.
+
+## Two camps
+
+One camp says: a failed operation is a failed response. `404` for a missing entity, `403` for a
+forbidden action, `409` for a conflict. Anything else is "tunnelling through HTTP" and ignores what
+the protocol already offers.
+
+The other camp says: the request was delivered, processed and answered. Nothing failed. The answer
+happens to be "no", and it belongs in the body, next to every other answer.
+
+Each camp can defend its position indefinitely, because each one is right from where it stands.
+
+## HTTP is two protocols
+
+The name says HyperText _Transfer_ Protocol. Its job is to move a request to a server and a
+response back. From that point of view a status code describes the transfer: whether the message
+arrived, whether it could be understood, whether the server was able to produce a response at all.
+
+But the content of the protocol goes far beyond transfer. `401 Unauthorized`, `402 Payment
+Required`, `403 Forbidden`, `409 Conflict` — none of these describe delivery. They are decisions
+made by application logic, frozen into the transport specification because they were common enough
+in the early web.
+
+So HTTP carries both layers in one field. Look at it as a transport, and application errors in the
+status line are a layering violation. Look at it as an application protocol, and they are exactly
+what the status line is for. There is no neutral position to judge from.
+
+## Nobody wants unacked packets
+
+Take the transport view to its conclusion. HTTP runs over TCP. Nobody suggests reporting "payment
+required" by refusing to acknowledge a TCP segment. That is obviously absurd: TCP delivered the
+bytes, and delivery is all TCP is responsible for.
+
+The same logic, applied one layer up, is the whole argument of the body camp. HTTP delivered the
+request and the response. Everything that happened in between is not HTTP's business.
+
+The only thing that makes this argument feel less obvious for HTTP than for TCP is that HTTP
+happens to have a vocabulary that looks like business logic.
+
+## A refusal is not a failure
+
+`401`, `402`, `403` and the rest are refusals made by your application. They are not exceptional
+situations. The application is healthy, its infrastructure is healthy, the network is healthy. The
+system did precisely what it was designed to do: it evaluated a request and declined it.
+
+A transport-level error means something went wrong with getting the message there or back. An
+application-level refusal means everything went right, and the answer is "no". Encoding both in the
+same three digits merges two very different kinds of events.
+
+## The vocabulary is too small
+
+HTTP defines a few dozen status codes. Your application has hundreds of ways to say no: the
+account is frozen, the coupon has expired, the quota is exhausted, the email is already taken, the
+order has shipped and can no longer be edited.
+
+A handful of these coincide with a status code by accident. For everything else there is `400 Bad
+Request` or `422 Unprocessable Content`, with the actual reason in the body:
+
+```http
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/json
+
+{ "error": "coupon_expired" }
+```
+
+At this point the status code carries almost no information. The client cannot branch on `422` —
+it has to read the body to learn what happened. Which means even the most committed status-code
+advocate is forced into the other camp's model: HTTP as a healthy transport whose job is to deliver
+a body, and the body identifies the error.
+
+The status code is still there, but it has become a coarse category, and the real protocol is the
+body.
+
+## The layer below has opinions
+
+A status code is not just a label you read. Every component between your server and your client
+code — browsers, caches, proxies, CDNs, load balancers, HTTP client libraries — has built-in
+behaviour keyed by it. You do not control that behaviour, and usually you do not see it.
+
+### Caching
+
+Some status codes are
+[heuristically cacheable](https://datatracker.ietf.org/doc/html/rfc9110#section-15.1): `200`,
+`203`, `204`, `206`, `300`, `301`, `308`, `404`, `405`, `410`, `414` and `501`. A cache is allowed
+to store these without any explicit freshness information. Others, including `400`, `401`, `403`,
+`409`, `422` and `429`, are not.
+
+So `404 Not Found` for "this user does not exist yet" can be served from a cache after the user has
+been created. `410 Gone` is effectively a promise that the resource will never come back. A `301`
+is remembered by browsers for a very long time. Choosing a status code for application reasons
+silently selects a caching policy along with it.
+
+### The login dialog
+
+A `401` with a `WWW-Authenticate: Basic` challenge makes the browser show its own native
+credentials prompt, outside your page and outside your control. Return `401` for "your session
+token has expired" from an endpoint the browser navigates to, attach the wrong header, and your
+users get a grey system dialog asking for a username and password.
+
+### Intermediaries
+
+- Load balancers and proxies retry on `5xx` (nginx `proxy_next_upstream`, Envoy `retry_on`), and
+  outlier detection ejects instances that return too many of them.
+- CDNs and reverse proxies may replace the body of an error response with their own error page.
+- Clients and gateways treat `429` and `503` with `Retry-After` as an instruction to back off, and
+  some retry automatically.
+- Monitoring and SLO dashboards count `4xx` and `5xx` as errors, and alert on them.
+
+None of this is wrong. It is correct behaviour for a transport. But every time you express a
+business decision through a status code, you have to check that the transport's reaction to that
+code is one you actually want — and keep checking as the infrastructure changes around you.
+
+## The standard agrees with both
+
+[RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457), Problem Details for HTTP APIs, is the
+closest thing to an official answer. It defines `application/problem+json`:
+
+```http
+HTTP/1.1 403 Forbidden
+Content-Type: application/problem+json
+
+{
+  "type": "https://example.com/probs/out-of-credit",
+  "title": "You do not have enough credit.",
+  "status": 403,
+  "detail": "Your current balance is 30, but that costs 50.",
+  "instance": "/account/12345/msgs/abc"
+}
+```
+
+Look at what it actually does. The identity of the error is `type`, a URI in the body. The status
+code is still sent, but it is also repeated inside the body as `status`, which the RFC calls
+advisory: it is there so the consumer still has it if an intermediary rewrites the real one.
+
+In other words, the standard keeps the status code for the transport's sake, and puts everything
+the application needs into the body — including a copy of the status code, in case the transport
+cannot be trusted with it. It is not a resolution of the dilemma. It is the dilemma, written down as
+a format.
+
+## So which one?
+
+The question is malformed. It asks which layer an application error
+belongs to, in a protocol that is itself two layers glued together.
+
+What you can do is choose a perspective deliberately and accept its costs. If HTTP is your
+application protocol, use status codes and take ownership of every side effect they trigger below
+you. If HTTP is your transport, keep the status line about transport and put your errors where the
+rest of your answers are — and accept that half the ecosystem will call that wrong.
+
+Either way, the body is where the error is actually identified. The only question is what the
+status line says while it is being delivered.
