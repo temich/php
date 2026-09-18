@@ -1,6 +1,6 @@
 ---
 title: OK (error)
-description: Status codes or response body? Both answers are right, and both are wrong.
+description: Status code or body? Both right, both wrong.
 keywords: http, rest, api design, status codes, error handling, problem details
 date: 2026-09-18
 ---
