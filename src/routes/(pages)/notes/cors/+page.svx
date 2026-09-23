@@ -1,0 +1,22 @@
+---
+title: CORS
+description: One little thing.
+keywords: http, cors
+date: 2026-09-24
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# CORS
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+CORS should be off by default.
+
+It patches a problem caused by poor web application design in the first place.
