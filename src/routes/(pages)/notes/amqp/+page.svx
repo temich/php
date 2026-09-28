@@ -277,5 +277,5 @@ multi-megabyte bodies through a broker is an abuse of it. Messages are meant to 
 large ones stops fitting in memory, and the broker starts paging exactly when it is under the most
 pressure.
 
-The argument is not that HTTP is a bad protocol. It is that "two services need to talk" is not the
-same problem as "a client fetches a document", and HTTP solves the second one.
+The argument is not that HTTP is a bad protocol. It is that "two services need to talk" [is not the
+same problem](https://www-test.ics.uci.edu/~fielding/pubs/dissertation/evaluation.htm#sec_6_5_2) as "a client fetches a document", and HTTP solves the second one.
