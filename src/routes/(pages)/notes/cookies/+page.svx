@@ -1,0 +1,22 @@
+---
+title: Cookies
+description: Don't use them.
+keywords: http, cookies
+date: 2026-09-28
+---
+
+<script>
+  const formattedDate = new Date(date).toLocaleDateString('en-US', {
+    year: '2-digit',
+    month: 'short',
+    day: 'numeric'
+  })
+</script>
+
+# Cookies
+
+<p class="text-muted-foreground text-sm">{formattedDate}</p>
+
+There was supposed to be an article here, but everything has [already been said](https://www-test.ics.uci.edu/~fielding/pubs/dissertation/evaluation.htm#sec_6_3_4_2).
+
+Cookies are evil. They serve no purpose other than violating privacy and compromising security.
