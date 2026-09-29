@@ -1,5 +1,5 @@
 ---
-title: Authentication
+title: Passkeys
 description: Please enter your email
 keywords: authentication, passkeys, email, privacy
 date: 2026-09-30
@@ -15,7 +15,7 @@ date: 2026-09-30
   })
 </script>
 
-# Authentication
+# Passkeys
 
 <p class="text-muted-foreground text-sm">{formattedDate}</p>
 
