@@ -21,27 +21,31 @@ date: 2026-09-30
 
 There is no reason for a service built today to authenticate anyone by email.
 
-For the service it is a product of its own. Sending mail means infrastructure, rendered templates, and the copy inside every message. Password recovery, one-time codes, changing the address — all of it has to be built, and none of it exists until an address is asked for.
+For the service, email means delivery infrastructure, templates, confirmation links, address changes and password recovery.
 
-A passkey needs none of that. The credential is already in the browser. Implementing one is incomparably simpler and cheaper.
-
-It is no better for the person signing up. Confirmation means opening a mailbox and waiting for the letter. The password that comes with the address is unsafe either way. People who know it reuse it across services. People who do not know it leave it to a password manager, and then it is no different from a passkey — only a strange, unsafe, inconvenient copy.
+For the user, confirmation means opening a mailbox and waiting. Passwords are either reused across services or stored in a password manager — a less secure, less convenient alternative to passkeys.
 
 ## The truth
 
-Services accept the inconvenience, for themselves and for their users, for two reasons.
+Services accept the inconvenience, for themselves and their users, for two reasons:
 
-1. To spam you
-2. To sell your data
+1. Send you spam
+2. Sell your data
 
-Selling means a [data management platform](https://en.wikipedia.org/wiki/Data_management_platform) (DMP). I have, unfortunately, built them. An email is how you are joined to the cookies of advertising networks. Registering with one is volunteering to be marked, across the web, as a cohort interested in the service the site provides.
+That second use is the business of [data management platforms](https://en.wikipedia.org/wiki/Data_management_platform), which I unfortunately have experience developing. An email joins your account to advertising identifiers. Registering with one is volunteering to be marked, across the web, as a cohort interested in the service the site provides.
 
 ## It should be illegal
 
-Requiring an email to register is one of the very few things I hope to see regulated. A service that asks for one is blackmailing you: consent to be spammed and to have your data sold, or be refused the service. That should be illegal. Every service should be obliged to offer an anonymous alternative.
+Requiring an email to register is one of the very few things I hope to see regulated. If the service works without my address, demanding it as the price of admission is blackmail.
 
-<figure class="flex flex-col items-center">
-  <button type="button" class="border-muted-foreground/25 hover:bg-muted my-16 flex aspect-square size-14 items-center justify-center rounded-lg border" aria-label="Register">
+Every such service should be obliged to offer an anonymous alternative. Permission to use a service should not cost permission to follow me outside it.
+
+## Passkeys
+
+Passkeys are safer than passwords, easier to use, and can’t be stolen or forgotten.
+
+<figure class="flex flex-col items-center pt-16 pb-16 gap-8">
+  <button type="button" class="border-muted-foreground/25 hover:bg-muted flex aspect-square size-14 items-center justify-center rounded-lg border" aria-label="Register">
     <Fingerprint class="size-6" />
   </button>
   <figcaption class="text-muted-foreground text-center text-sm">What a registration form should look like</figcaption>
