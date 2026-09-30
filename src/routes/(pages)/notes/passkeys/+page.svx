@@ -21,7 +21,7 @@ date: 2026-09-30
 
 There is no reason for a service built today to authenticate anyone by email.
 
-For the service, email means delivery infrastructure, templates, confirmation links, address changes and password recovery.
+For the service, email means delivery infrastructure, SPF, DKIM, DMARC, bounce handling, sender reputation, templates, confirmation links, address changes and password recovery.
 
 For the user, confirmation means opening a mailbox and waiting. Passwords are either reused across services or stored in a password manager — a less secure, less convenient alternative to passkeys.
 
