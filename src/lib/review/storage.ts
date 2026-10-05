@@ -32,6 +32,14 @@ export const save = (path: string, comments: Comment[]): void => {
 	}
 }
 
+export const clear = (): void => {
+	try {
+		localStorage.removeItem(KEY)
+	} catch {
+		// private mode
+	}
+}
+
 export const serialize = (comments: Comment[]): string =>
 	comments
 		.map((c) => `${blockquote(c.quote)}\n${c.comment}`)
