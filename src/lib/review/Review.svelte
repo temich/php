@@ -3,7 +3,7 @@
 	import { afterNavigate } from '$app/navigation'
 	import { onMount, tick } from 'svelte'
 	import { Copy, Check, X } from '@lucide/svelte'
-	import { load, save, serialize, type Comment } from './storage'
+	import { clear, load, save, serialize, type Comment } from './storage'
 	import { context, wrapRange, unwrap, locateAndWrap } from './range'
 
 	let comments = $state<Comment[]>([])
@@ -31,6 +31,7 @@
 		const abort = new AbortController()
 		document.addEventListener('pointerup', onpointerup, { signal: abort.signal })
 		document.addEventListener('click', onClick, { capture: true, signal: abort.signal })
+		window.addEventListener('blur', onblur, { signal: abort.signal })
 		void reload()
 		return () => abort.abort()
 	})
@@ -38,6 +39,14 @@
 	afterNavigate(() => {
 		void reload()
 	})
+
+	// what was commented is in the clipboard, on its way to wherever the focus went
+	const onblur = () => {
+		close()
+		for (const comment of comments) unwrap(comment.id)
+		comments = []
+		clear()
+	}
 
 	const onClick = (event: MouseEvent) => {
 		if (!(event.target instanceof Element)) return
