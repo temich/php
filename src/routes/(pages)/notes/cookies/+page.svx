@@ -35,10 +35,10 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
     </li>
     <li>
       <time>1996</time>
-      <div><strong>Cross-site tracking</strong>Third-party cookies follow the user across sites. Blocked by Safari (2020) and Firefox (2021); Chrome gave up in 2024.</div>
+      <div><strong>Cross-site tracking</strong>Third-party cookies follow the user across sites. Blocked by Safari (2020), partitioned by Firefox (2022); Chrome gave up in 2024.</div>
     </li>
     <li>
-      <time>~2000</time>
+      <time>2000</time>
       <div><strong>Cookie theft via XSS</strong>Any script on the page reads <code>document.cookie</code>. Patched by <code>HttpOnly</code> (2002), opt-in.</div>
     </li>
     <li>
@@ -79,6 +79,10 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
     </li>
     <li>
       <time>2013</time>
+      <div><strong>Cookie tossing</strong>A subdomain or a plain HTTP response overwrites the cookies of an HTTPS site. Patched by the <code>__Host-</code> prefix (2016), opt-in by cookie name.</div>
+    </li>
+    <li>
+      <time>2013</time>
       <div><strong>Cross-site WebSocket hijacking</strong>The handshake carries cookies and is exempt from the same-origin policy. Patched in application code.</div>
     </li>
     <li>
@@ -86,12 +90,8 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
       <div><strong>Cookie bomb</strong>Oversized cookies make the server reject every request. Not patched.</div>
     </li>
     <li>
-      <time>2015</time>
-      <div><strong>Cookie tossing</strong>A subdomain or a plain HTTP response overwrites the cookies of an HTTPS site. Patched by the <code>__Host-</code> prefix (2016), opt-in by cookie name.</div>
-    </li>
-    <li>
       <time>now</time>
-      <div><strong>Session replay</strong>A cookie is a bearer token: malware copies it and skips the second factor. Device Bound Session Credentials have been in the works since 2024.</div>
+      <div><strong>Session replay</strong>A cookie is a bearer token: malware copies it and skips the second factor. Device Bound Session Credentials shipped in Chrome for Windows in 2026.</div>
     </li>
   </ol>
 </details>
