@@ -6,6 +6,8 @@ date: 2026-09-28
 ---
 
 <script>
+  import { ChevronDown } from '@lucide/svelte'
+
   const formattedDate = new Date(date).toLocaleDateString('en-US', {
     year: '2-digit',
     month: 'short',
@@ -20,3 +22,151 @@ date: 2026-09-28
 There was supposed to be an article here, but everything has [already been said](https://www-test.ics.uci.edu/~fielding/pubs/dissertation/evaluation.htm#sec_6_3_4_2).
 
 Cookies are evil. They serve no purpose other than violating privacy and compromising security.
+
+<details class="group mt-12">
+  <summary class="text-muted-foreground flex cursor-pointer text-sm list-none items-center gap-1 [&::-webkit-details-marker]:hidden">
+    Vulnerabilities introduced by cookies
+    <ChevronDown class="size-4 transition-transform group-open:rotate-180" />
+  </summary>
+  <ol class="timeline">
+    <li>
+      <time>1994</time>
+      <div><strong>Supercookies</strong>The original dot-counting rule let any site set a cookie for all of <code>.co.uk</code>. Patched by the Public Suffix List (2007), which is maintained by hand.</div>
+    </li>
+    <li>
+      <time>1996</time>
+      <div><strong>Cross-site tracking</strong>Third-party cookies follow the user across sites. Blocked by Safari (2020) and Firefox (2021); Chrome gave up in 2024.</div>
+    </li>
+    <li>
+      <time>~2000</time>
+      <div><strong>Cookie theft via XSS</strong>Any script on the page reads <code>document.cookie</code>. Patched by <code>HttpOnly</code> (2002), opt-in.</div>
+    </li>
+    <li>
+      <time>2001</time>
+      <div><strong>CSRF</strong>Any site makes the browser send an authenticated request. Patched by tokens in every framework, then <code>SameSite</code> (2016), on by default since 2020.</div>
+    </li>
+    <li>
+      <time>2002</time>
+      <div><strong>Session fixation</strong>The attacker plants a known session ID before login. Patched in application code.</div>
+    </li>
+    <li>
+      <time>2003</time>
+      <div><strong>Cross-site tracing</strong>The <code>TRACE</code> method echoes the cookie back to a script, bypassing <code>HttpOnly</code>. Browsers banned <code>TRACE</code>.</div>
+    </li>
+    <li>
+      <time>2006</time>
+      <div><strong>JSON hijacking</strong>A <code>&lt;script&gt;</code> tag pointing to another origin carries cookies and leaks the authenticated response. Patched by unparseable prefixes, then CORB (2018).</div>
+    </li>
+    <li>
+      <time>2007</time>
+      <div><strong>Cross-site leaks</strong>Timing, errors, and frame counts of authenticated cross-site responses reveal the user's state. Mitigated by Fetch Metadata (2019), CORP, and COOP (2020), all opt-in.</div>
+    </li>
+    <li>
+      <time>2008</time>
+      <div><strong>Clickjacking</strong>A framed page is still authenticated, so a disguised click acts as the user. Patched by <code>X-Frame-Options</code> (2009), opt-in.</div>
+    </li>
+    <li>
+      <time>2008</time>
+      <div><strong>Login CSRF</strong>The attacker logs the victim into the attacker's account. Patched in application code.</div>
+    </li>
+    <li>
+      <time>2010</time>
+      <div><strong>Sidejacking</strong>Firesheep hijacks sessions on open Wi-Fi with one click. <code>Secure</code> had existed since 1994, unused. Patched by HSTS (2012), opt-in.</div>
+    </li>
+    <li>
+      <time>2011–2014</time>
+      <div><strong>BEAST, CRIME, BREACH, POODLE</strong>The same secret is resent with every request, so it can be guessed byte by byte. Patched by removing TLS compression and SSL 3.0; BREACH is only mitigated.</div>
+    </li>
+    <li>
+      <time>2013</time>
+      <div><strong>Cross-site WebSocket hijacking</strong>The handshake carries cookies and is exempt from the same-origin policy. Patched in application code.</div>
+    </li>
+    <li>
+      <time>2014</time>
+      <div><strong>Cookie bomb</strong>Oversized cookies make the server reject every request. Not patched.</div>
+    </li>
+    <li>
+      <time>2015</time>
+      <div><strong>Cookie tossing</strong>A subdomain or a plain HTTP response overwrites the cookies of an HTTPS site. Patched by the <code>__Host-</code> prefix (2016), opt-in by cookie name.</div>
+    </li>
+    <li>
+      <time>now</time>
+      <div><strong>Session replay</strong>A cookie is a bearer token: malware copies it and skips the second factor. Device Bound Session Credentials have been in the works since 2024.</div>
+    </li>
+  </ol>
+</details>
+
+<style>
+  .timeline {
+    --year: 6.5rem;
+    --gap: 2.5rem;
+    margin-top: 1.5rem;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .timeline li {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--year) 1fr;
+    column-gap: var(--gap);
+    padding-bottom: 1.25rem;
+  }
+
+  .timeline li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--year) + var(--gap) / 2 - 1px);
+    width: 2px;
+    background: var(--muted);
+  }
+
+  .timeline li:first-child::before {
+    top: 0.75rem;
+  }
+
+  .timeline li:last-child::before {
+    bottom: auto;
+    height: 0.75rem;
+  }
+
+  .timeline li::after {
+    content: '';
+    position: absolute;
+    top: 0.75rem;
+    left: calc(var(--year) + var(--gap) / 2);
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid var(--background);
+    border-radius: 50%;
+    background: var(--muted-foreground);
+    box-sizing: content-box;
+    transform: translate(-50%, -50%);
+  }
+
+  .timeline time {
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .timeline strong {
+    display: block;
+  }
+
+  @media (max-width: 30rem) {
+    .timeline {
+      --year: 3rem;
+      --gap: 1.75rem;
+    }
+
+    .timeline time {
+      white-space: normal;
+    }
+  }
+</style>
