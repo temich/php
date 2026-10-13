@@ -55,7 +55,7 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
     </li>
     <li>
       <time>2006</time>
-      <div><strong>JSON hijacking</strong>A <code>&lt;script&gt;</code> tag pointing to another origin carries cookies and leaks the authenticated response. Patched by unparseable prefixes, then CORB (2018).</div>
+      <div><strong>XSSI and JSONP leaks</strong>A <code>&lt;script&gt;</code> tag pointing to another origin carries cookies and leaks the authenticated response. Patched by unparseable prefixes, then CORB (2018).</div>
     </li>
     <li>
       <time>2007</time>
@@ -68,6 +68,10 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
     <li>
       <time>2008</time>
       <div><strong>Login CSRF</strong>The attacker logs the victim into the attacker's account. Patched in application code.</div>
+    </li>
+    <li>
+      <time>2010</time>
+      <div><strong>Client-side trust</strong>State kept in a cookie is attacker-controlled input: ASP.NET's encrypted cookies fell to a padding oracle, unsigned and serialized ones are simply edited. Patched in application code.</div>
     </li>
     <li>
       <time>2010</time>
@@ -88,6 +92,10 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
     <li>
       <time>2014</time>
       <div><strong>Cookie bomb</strong>Oversized cookies make the server reject every request. Not patched.</div>
+    </li>
+    <li>
+      <time>2016</time>
+      <div><strong>CORS with credentials</strong>A server that reflects <code>Origin</code> and allows credentials lets any site read authenticated responses. Patched in application code.</div>
     </li>
     <li>
       <time>now</time>
