@@ -6,7 +6,7 @@ date: 2026-09-28
 ---
 
 <script>
-  import { ChevronDown } from '@lucide/svelte'
+  import { ChevronDown, ExternalLink } from '@lucide/svelte'
 
   const formattedDate = new Date(date).toLocaleDateString('en-US', {
     year: '2-digit',
@@ -31,75 +31,210 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
   <ol class="timeline">
     <li>
       <time>1994</time>
-      <div><strong>Supercookies</strong>The original dot-counting rule let any site set a cookie for all of <code>.co.uk</code>. Patched by the Public Suffix List (2007), which is maintained by hand.</div>
+      <div>
+        <strong>Supercookies</strong>
+        The original dot-counting rule let any site set a cookie for all of <code>.co.uk</code>. Patched by the Public Suffix List (2007), which is maintained by hand.
+        <ul>
+        <li><a href="https://en.wikipedia.org/wiki/HTTP_cookie#Supercookie">Supercookie<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://publicsuffix.org/learn/">Public Suffix List<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>1996</time>
-      <div><strong>Cross-site tracking</strong>Third-party cookies follow the user across sites. Blocked by Safari (2020), partitioned by Firefox (2022); Chrome gave up in 2024.</div>
+      <div>
+        <strong>Cross-site tracking</strong>
+        Third-party cookies follow the user across sites. Blocked by Safari (2020), partitioned by Firefox (2022); Chrome gave up in 2024.
+        <ul>
+        <li><a href="https://arxiv.org/abs/cs/0105018">HTTP Cookies: Standards, Privacy, and Politics<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://webkit.org/blog/10218/full-third-party-cookie-blocking-and-more/">Safari<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://blog.mozilla.org/security/2021/02/23/total-cookie-protection/">Firefox<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://privacysandbox.google.com/blog/privacy-sandbox-update">Chrome<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2000</time>
-      <div><strong>Cookie theft via XSS</strong>Any script on the page reads <code>document.cookie</code>. Patched by <code>HttpOnly</code> (2002), opt-in.</div>
+      <div>
+        <strong>Cookie theft via XSS</strong>
+        Any script on the page reads <code>document.cookie</code>. Patched by <code>HttpOnly</code> (2002), opt-in.
+        <ul>
+        <li><a href="https://web.archive.org/web/20020124063448/http://www.cert.org/advisories/CA-2000-02.html">CERT CA-2000-02<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://owasp.org/www-community/HttpOnly">HttpOnly<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2001</time>
-      <div><strong>CSRF</strong>Any site makes the browser send an authenticated request. Patched by tokens in every framework, then <code>SameSite</code> (2016), on by default since 2020.</div>
+      <div>
+        <strong>CSRF</strong>
+        Any site makes the browser send an authenticated request. Patched by tokens in every framework, then <code>SameSite</code> (2016), on by default in Chromium browsers since 2020.
+        <ul>
+        <li><a href="https://seclists.org/bugtraq/2001/Jun/217">Bugtraq<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://web.dev/articles/samesite-cookies-explained">SameSite cookies explained<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2002</time>
-      <div><strong>Session fixation</strong>The attacker plants a known session ID before login. Patched in application code.</div>
+      <div>
+        <strong>Session fixation</strong>
+        The attacker plants a known session ID before login. Patched in application code.
+        <ul>
+        <li><a href="https://www.acrossecurity.com/papers/session_fixation.pdf">Session Fixation Vulnerability in Web-based Applications<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2003</time>
-      <div><strong>Cross-site tracing</strong>The <code>TRACE</code> method echoes the cookie back to a script, bypassing <code>HttpOnly</code>. Browsers banned <code>TRACE</code>.</div>
+      <div>
+        <strong>Cross-site tracing</strong>
+        The <code>TRACE</code> method echoes the cookie back to a script, bypassing <code>HttpOnly</code>. Browsers banned <code>TRACE</code>.
+        <ul>
+        <li><a href="https://owasp.org/www-community/attacks/Cross_Site_Tracing">OWASP<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2006</time>
-      <div><strong>XSSI and JSONP leaks</strong>A <code>&lt;script&gt;</code> tag pointing to another origin carries cookies and leaks the authenticated response. Patched by unparseable prefixes, then CORB (2018).</div>
+      <div>
+        <strong>XSSI and JSONP leaks</strong>
+        A <code>&lt;script&gt;</code> tag pointing to another origin carries cookies and leaks the authenticated response. Patched by unparseable prefixes, then CORB (2018).
+        <ul>
+        <li><a href="https://blog.jeremiahgrossman.com/2006/01/advanced-web-attack-techniques-using.html">Advanced Web Attack Techniques using GMail<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://www.chromium.org/Home/chromium-security/corb-for-developers/">CORB<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2007</time>
-      <div><strong>Cross-site leaks</strong>Timing, errors, and frame counts of authenticated cross-site responses reveal the user's state. Mitigated by Fetch Metadata (2019), CORP, and COOP (2020), all opt-in.</div>
+      <div>
+        <strong>Cross-site leaks</strong>
+        Timing, errors, and frame counts of authenticated cross-site responses reveal the user's state. Mitigated by Fetch Metadata (2019), CORP, and COOP (2020), all opt-in.
+        <ul>
+        <li><a href="https://crypto.stanford.edu/~dabo/abstracts/webtiming.html">Exposing Private Information by Timing Web Applications<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://xsleaks.dev/">XS-Leaks Wiki<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://w3c.github.io/webappsec-fetch-metadata/">Fetch Metadata<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2008</time>
-      <div><strong>Clickjacking</strong>A framed page is still authenticated, so a disguised click acts as the user. Patched by <code>X-Frame-Options</code> (2009), opt-in.</div>
+      <div>
+        <strong>Clickjacking</strong>
+        A framed page is still authenticated, so a disguised click acts as the user. Patched by <code>X-Frame-Options</code> (2009), opt-in.
+        <ul>
+        <li><a href="https://en.wikipedia.org/wiki/Clickjacking">Wikipedia<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://learn.microsoft.com/en-us/archive/blogs/ie/ie8-security-part-vii-clickjacking-defenses">IE8 Security: ClickJacking Defenses<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2008</time>
-      <div><strong>Login CSRF</strong>The attacker logs the victim into the attacker's account. Patched in application code.</div>
+      <div>
+        <strong>Login CSRF</strong>
+        The attacker logs the victim into the attacker's account. Patched in application code.
+        <ul>
+        <li><a href="https://seclab.stanford.edu/websec/csrf/">Robust Defenses for Cross-Site Request Forgery<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2010</time>
-      <div><strong>Client-side trust</strong>State kept in a cookie is attacker-controlled input: ASP.NET's encrypted cookies fell to a padding oracle, unsigned and serialized ones are simply edited. Patched in application code.</div>
+      <div>
+        <strong>Client-side trust</strong>
+        State kept in a cookie is attacker-controlled input: ASP.NET's encrypted cookies fell to a padding oracle, unsigned and serialized ones are simply edited. Patched in application code.
+        <ul>
+        <li><a href="https://learn.microsoft.com/en-us/security-updates/securitybulletins/2010/ms10-070">MS10-070<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://en.wikipedia.org/wiki/Padding_oracle_attack">Padding oracle attack<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2010</time>
-      <div><strong>Sidejacking</strong>Firesheep hijacks sessions on open Wi-Fi with one click. <code>Secure</code> had existed since 1994, unused. Patched by HSTS (2012), opt-in.</div>
+      <div>
+        <strong>Sidejacking</strong>
+        Firesheep hijacks sessions on open Wi-Fi with one click. <code>Secure</code> had existed since 1994, unused. Patched by HSTS (2012), opt-in.
+        <ul>
+        <li><a href="https://en.wikipedia.org/wiki/Firesheep">Firesheep<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://www.rfc-editor.org/rfc/rfc6797">RFC 6797<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2011–2014</time>
-      <div><strong>BEAST, CRIME, BREACH, POODLE</strong>The same secret is resent with every request, so it can be guessed byte by byte. Patched by removing TLS compression and SSL 3.0; BREACH is only mitigated.</div>
+      <div>
+        <strong>BEAST, CRIME, BREACH, POODLE</strong>
+        The same secret is resent with every request, so it can be guessed byte by byte. Patched by removing TLS compression and SSL 3.0; BREACH is only mitigated.
+        <ul>
+        <li><a href="https://en.wikipedia.org/wiki/Transport_Layer_Security#BEAST_attack">BEAST<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://en.wikipedia.org/wiki/CRIME">CRIME<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://en.wikipedia.org/wiki/BREACH">BREACH<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://en.wikipedia.org/wiki/POODLE">POODLE<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2013</time>
-      <div><strong>Cookie tossing</strong>A subdomain or a plain HTTP response overwrites the cookies of an HTTPS site. Patched by the <code>__Host-</code> prefix (2016), opt-in by cookie name.</div>
+      <div>
+        <strong>Cookie tossing</strong>
+        A subdomain or a plain HTTP response overwrites the cookies of an HTTPS site. Patched by the <code>__Host-</code> prefix (2016), opt-in by cookie name.
+        <ul>
+        <li><a href="https://github.blog/engineering/yummy-cookies-across-domains/">Yummy cookies across domains<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/zheng">Cookies Lack Integrity<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2013</time>
-      <div><strong>Cross-site WebSocket hijacking</strong>The handshake carries cookies and is exempt from the same-origin policy. Patched in application code.</div>
+      <div>
+        <strong>Cross-site WebSocket hijacking</strong>
+        The handshake carries cookies and is exempt from the same-origin policy. Patched in application code.
+        <ul>
+        <li><a href="https://christian-schneider.net/CrossSiteWebSocketHijacking.html">Cross-Site WebSocket Hijacking<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2014</time>
-      <div><strong>Cookie bomb</strong>Oversized cookies make the server reject every request. Not patched.</div>
+      <div>
+        <strong>Cookie bomb</strong>
+        Oversized cookies make the server reject every request. Not patched.
+        <ul>
+        <li><a href="https://homakov.blogspot.com/2014/01/cookie-bomb-or-lets-break-internet.html">Cookie Bomb or let's break the Internet<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>2016</time>
-      <div><strong>CORS with credentials</strong>A server that reflects <code>Origin</code> and allows credentials lets any site read authenticated responses. Patched in application code.</div>
+      <div>
+        <strong>CORS with credentials</strong>
+        A server that reflects <code>Origin</code> and allows credentials lets any site read authenticated responses. Patched in application code.
+        <ul>
+        <li><a href="https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties">Exploiting CORS misconfigurations for Bitcoins and bounties<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
+    </li>
+    <li>
+      <time>2023</time>
+      <div>
+        <strong>Prefix bypass</strong>
+        Browsers and servers parse the <code>Cookie</code> header differently, so a tossed cookie passes for a <code>__Host-</code> one. Patched per framework.
+        <ul>
+        <li><a href="https://www.usenix.org/conference/usenixsecurity23/presentation/squarcina">Cookie Crumbles<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
     <li>
       <time>now</time>
-      <div><strong>Session replay</strong>A cookie is a bearer token: malware copies it and skips the second factor. Device Bound Session Credentials shipped in Chrome for Windows in 2026.</div>
+      <div>
+        <strong>Session replay</strong>
+        A cookie is a bearer token: malware copies it and skips the second factor. Device Bound Session Credentials shipped in Chrome for Windows in 2026.
+        <ul>
+        <li><a href="https://attack.mitre.org/techniques/T1539/">MITRE ATT&amp;CK T1539<ExternalLink class="size-3" /></a></li>
+        <li><a href="https://blog.google/security/protecting-cookies-with-device-bound-session-credentials/">Device Bound Session Credentials<ExternalLink class="size-3" /></a></li>
+        </ul>
+      </div>
     </li>
   </ol>
 </details>
@@ -165,6 +300,33 @@ Cookies are evil. They serve no purpose other than violating privacy and comprom
 
   .timeline strong {
     display: block;
+  }
+
+  .timeline ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1rem;
+    margin-top: 0.25rem;
+    padding-left: 0;
+    list-style: none;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+  }
+
+  .timeline ul a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .timeline ul li {
+    display: block;
+    padding-bottom: 0;
+  }
+
+  .timeline ul li::before,
+  .timeline ul li::after {
+    content: none;
   }
 
   @media (max-width: 30rem) {
